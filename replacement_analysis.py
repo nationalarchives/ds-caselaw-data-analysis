@@ -29,10 +29,9 @@ def load_replacement_data (processing_root, folder):
     cache_path = processing_root + "/processing/cache"
 
     data_values = {}
-    column_values = {"case": ["file", "last_modified", "citation_match", "corrected_citation/citation_match", "year", "URI", "is_neutral"], 
-                     "leg":["file", "last_modified", "detected_ref", "href", "canonical_form"], 
-                     "abb": ["file", "last_modified", "initials", "expanded"],
-                     "judgment":["file", "last_modified", "hearing_date_1", "hearing_date_2", "judgment_date"]
+    column_values = {"case": ["file", "pass", "last_modified", "citation_match", "corrected_citation/citation_match", "year", "URI", "is_neutral"], 
+                     "leg":["file", "pass", "last_modified", "detected_ref", "href", "canonical_form"], 
+                     "abb": ["file", "pass", "last_modified", "initials", "expanded"]
                     }
 
     if not any(Path(cache_path).glob("*.pkl")):
@@ -43,16 +42,16 @@ def load_replacement_data (processing_root, folder):
                 
                 base_filename = Path(file).stem
                 
-                dates = get_date_values(processing_root + "/xml-enriched-bucket", base_filename)
-                temp_list = [base_filename, last_modified] + dates[]
+                pass_num = 1
                 
                 if base_filename[0] == "-":
-                    base_filename = base_filename[1:] + "_2"
+                    base_filename = base_filename[1:]
+                    pass_num = 2
                     
                 print("Processing file:" + str(base_filename))   
 
                 file_date = datetime.datetime.strptime(time.ctime(os.path.getmtime(file)), "%a %b %d %H:%M:%S %Y")
-                last_modified = file_date.strftime('%Y-%m-%d')            
+                last_modified = file_date.strftime('%Y-%m-%d')         
                             
                 with open(file, 'r') as replacements_file:
                     for line in replacements_file.readlines():
@@ -60,23 +59,41 @@ def load_replacement_data (processing_root, folder):
                         dict_keys = temp_dict.keys()                    
                         
                         for key in dict_keys:
-                            temp_list = [base_filename, last_modified] + temp_dict[key]
+                            temp_list = [base_filename, pass_num, last_modified] + temp_dict[key]
                             #print(temp_list)
                             
-                            if key in data_values.keys():
+                            if key in data_values.keys() and key != "dates":
                                 df = data_values[key]
                                 df.loc[len(df)] = temp_list
                             else:
                                 df = pd.DataFrame([temp_list], columns=column_values[key])
                                 data_values[key] = df
+                
+                xml_file = Path(processing_root + "/xml-enriched-bucket", base_filename + ".xml") 
+                
+                if xml_file.is_file():               
+                    dates = get_date_values(processing_root + "/xml-enriched-bucket", base_filename)
+                    dates_temp_list = [base_filename, pass_num, last_modified, dates["hearing_date_1"], dates["hearing_date_2"], dates["judgment_date"]]   
+                    
+                    if "dates" in data_values.keys():      
+                        dates_df = data_values["dates"]
+                        #print(dates_df.to_string())
+                        #print(dates_temp_list)
+                        dates_df.loc[len(dates_df)] = dates_temp_list
+                    else:
+                        dates_df = pd.DataFrame([dates_temp_list], columns=["file", "pass", "last_modified", "hearing_date_1", "hearing_date_2", "judgment_date"])
+                        data_values["dates"] = dates_df
+                else:
+                    with open("data/errors.txt", "a") as myfile:
+                        myfile.write("Could not file " + base_filename + ".xml\n")                         
+
                                 
-                                
-                                
-            for key, df in data_values.items():
-                df2 = df.groupby(df.columns.tolist(), as_index=False).size()
+            for key, dfs in data_values.items():
+                remove_dups = dfs.groupby(dfs.columns.tolist(), as_index=False).size()
                 #print(df.to_string())
-                #df2.to_pickle(Path(cache_path, key + ".pkl"))
-                data_values[key] = df2
+                #print(remove_dups.to_string())
+                remove_dups.to_pickle(Path(cache_path, key + ".pkl"))
+                data_values[key] = remove_dups
                     
         except OSError as e:
             print("Error in data loading: " + str(e))
@@ -113,46 +130,100 @@ def plot_dates (df):
     #print(file_date.head)
 
 
-def get_legislation_references(legislation):    
-    list_of_leg = legislation.groupby(['detected_ref', 'href']).size()
-    file_leg = legislation.groupby(['detected_ref', 'file']).size()
+def get_legislation_references(legislation):  
+    
+    sorted_leg = legislation.sort_values(['file', 'pass'], ascending=False)
+    filtered_leg = sorted_leg.drop_duplicates(['file', 'detected_ref'], keep="first")
 
-    print(list_of_leg.head)
-    print(file_leg.head)
+    #print("Filtered:")
+    #print(filtered_leg.head)    
+     
+    list_of_leg_by_file = filtered_leg.groupby(['file', 'detected_ref', 'href', 'size'], sort=False).size()
+    
+    #legislation_reduced_columns = filtered_leg['detected_ref', 'href', 'size']
+    
+    list_of_leg = filtered_leg.groupby(['detected_ref', 'href', 'canonical_form'], sort=False)['size'].sum()
+
+
+    #print("By File:")
+    #print(list_of_leg_by_file.head)
+    
+    #print("Leg:")
+    #print(list_of_leg.head)
+    
+    #print(file_leg.head)
     
     list_of_leg.to_csv("data/leg.csv")
-    file_leg.to_csv("data/file_leg.csv")
+    list_of_leg_by_file.to_csv("data/file_leg.csv")
 
 
 def get_cases_references(cases):    
-    list_of_cases = cases.groupby(['corrected_citation/citation_match', 'URI']).size()
+    
+    sorted_cases = cases.sort_values(['file', 'pass'], ascending=False)
+    
+    filtered_cases = sorted_cases.drop_duplicates(['file', 'corrected_citation/citation_match'], keep="first")
+    
+    list_of_cases = filtered_cases.groupby(['corrected_citation/citation_match', 'URI']).size()
 
-    print(list_of_cases.head)
+    #print(list_of_cases.head)
     #print(cases.head)  
     
     list_of_cases.to_csv("data/cases.csv")
 
+
+def get_date_references(dates):
+
+    sorted_dates = dates.sort_values(['file', 'pass'], ascending=False)
+    
+    filtered_dates = sorted_dates.drop_duplicates(['file'], keep="first") 
+    
+    #print(filtered_dates.head)   
+    
+    filtered_dates.to_csv("data/dates.csv")
+    
+
 def get_date_values(folder, filename):
-    print(Path(folder, filename + ".xml"))
+    #print(Path(folder, filename + ".xml"))
     
     data = {}
-    
-    tree = et.parse(Path(folder, filename + ".xml"))
+    try:
+        tree = et.parse(Path(folder, filename + ".xml"))
+    except et.ParseError as e:
+        with open("data/errors.txt", "a") as myfile:
+            myfile.write("Parser error in " + filename + ".xml: " + str(e) + "\n")
+        
+        return {"judgment_date":"", "hearing_date_1":"", "hearing_date_2":""}
+        
     root = tree.getroot()
     
     text = et.tostring(root, encoding='utf-8').decode()
     
     #Path("data/processing/text.txt").write_text(text)
     
-    ns = re.match(r'{.*}', root.tag).group(0)
+    if m := re.match(r'{.*}', root.tag):
+        ns = m.group(0)
+    else:
+        with open("data/errors.txt", "a") as myfile:
+            myfile.write("Could not find namespaces in " + filename + ".xml\n")
+        
+        return {"judgment_date":"", "hearing_date_1":"", "hearing_date_2":""}        
     
-    judgment_date_string = tree.find(f".//{ns}FRBRWork/{ns}FRBRdate[@name='judgment']").get('date')
+    judgment_date_string = ""
+    
+    for date_node in tree.findall(f".//{ns}FRBRWork/{ns}FRBRdate[@name='judgment']"):
+        if judgment_date_string == "":
+            judgment_date_string = date_node.get('date')
     
     if judgment_date_string != "":
         try:
-            data["judgment date"] = datetime.datetime.strptime(judgment_date_string, '%Y-%m-%d')
+            data["judgment_date"] = datetime.datetime.strptime(judgment_date_string, '%Y-%m-%d')
         except ValueError as e:
-            print("Error in judgment date extraction in " + filename + ".xml: " + str(e))
+            with open("data/errors.txt", "a") as myfile:
+                myfile.write("Error in judgment date extraction in " + filename + ".xml: " + str(e) + "\n")
+                
+            data["judgment_date"] = ""
+    else:
+        data["judgment_date"] = ""
     
     if m := re.search(r'Hearing\s+date:?\s+(\d+)([&;a-z\-\s]+)?(\d+)?\s*(<[\w\W]*?>)?\s*(\w+)\s+(\d+)', text):
         day = m.group(1)
@@ -165,30 +236,38 @@ def get_date_values(folder, filename):
             if day2 != None:
                 hearing_date_string1 = day + " " + month + " " + year
                 hearing_date_string2 = day2 + " " + month + " " + year 
-                data["hearing date_1"] = datetime.datetime.strptime(hearing_date_string1, '%d %B %Y')
-                data["hearing date_2"] = datetime.datetime.strptime(hearing_date_string2, '%d %B %Y')
+                data["hearing_date_1"] = datetime.datetime.strptime(hearing_date_string1, '%d %B %Y')
+                data["hearing_date_2"] = datetime.datetime.strptime(hearing_date_string2, '%d %B %Y')
                 
             else:
                 hearing_date_string = day + " " + month + " " + year
-                data["hearing date_1"] = datetime.datetime.strptime(hearing_date_string, '%d %B %Y')
-                data["hearing date_2"] = ""
+                data["hearing_date_1"] = datetime.datetime.strptime(hearing_date_string, '%d %B %Y')
+                data["hearing_date_2"] = ""
                 
         except ValueError as e:
             match_results = str(m) + "\nGroup 1:\n" + str(m.group(1)) + "\nGroup 2\n" + str(m.group(2)) + "\nGroup 3:\n" + str(m.group(3)) + "\nGroup 4:\n" + str(m.group(4)) + "\nGroup 5:\n" + str(m.group(5)) + "\nGroup 6:\n" + str(m.group(6))  
             
-            print("Error in hearing date extraction in " + filename + ".xml. '" + match_results + "': " + str(e))
+            with open("data/errors.txt", "a") as myfile:
+                myfile.write("Error in hearing date extraction in " + filename + ".xml. '" + match_results + "': " + str(e) + "\n")
+                
+            data["hearing_date_1"] = ""
+            data["hearing_date_2"] = ""
             
     else:
-        print("No match found in " + filename + ".xml")
+        with open("data/errors.txt", "a") as myfile:
+            myfile.write("No hearing date match found in " + filename + ".xml\n")
+        data["hearing_date_1"] = ""
+        data["hearing_date_2"] = ""
 
     #print(data)
     return data
     
 
 
+open("data/errors.txt", 'w').close()
 processing_root = "data"
-#data_folder = "replacements-bucket"
-data_folder = "test-data"
+data_folder = "replacements-bucket"
+#data_folder = "test-data"
 
 datasets = load_replacement_data(processing_root, data_folder)
 
@@ -196,10 +275,14 @@ datasets = load_replacement_data(processing_root, data_folder)
 #for name, dataset in datasets.items():
 #    plot_dates(dataset)
 
-'''
+
 if 'leg' in datasets.keys():
     get_legislation_references(datasets['leg'])
 
+
 if 'case' in datasets.keys():    
     get_cases_references(datasets['case'])
-'''
+
+if 'dates' in datasets.keys(): 
+    get_date_references(datasets['dates'])
+
