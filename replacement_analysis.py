@@ -113,7 +113,7 @@ def load_replacement_data (processing_root, folder):
                 #print(df.to_string())
                 #print(remove_dups.to_string())
                 
-                #remove_dups.to_pickle(Path(cache_path, key + ".pkl"))
+                remove_dups.to_pickle(Path(cache_path, key + ".pkl"))
                 data_values[key] = remove_dups
                     
         except OSError as e:
