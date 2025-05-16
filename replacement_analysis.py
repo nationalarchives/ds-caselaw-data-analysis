@@ -14,7 +14,7 @@
 #filename - if - at start then rerun
 
 from pathlib import Path
-import json, os, datetime, time, re, shutil
+import json, os, datetime, time, re, shutil, time
 import pandas as pd
 import matplotlib
 import xml.etree.ElementTree as et
@@ -283,7 +283,7 @@ def get_date_values(xml_folder, filename, processing_folder=""):
     else:
         data["judgment_date"] = ""
     
-    if m := re.search(r'Hearing\s+date:?\s+(\d+)([&;a-z\-\s]+)?(\d+)?\s*(<[\w\W]*?>)?\s*(\w+)\s+(\d+)', text):
+    if m := re.search(r'Hearing\s+dates?:?\s+(\d+)([&;a-z\-\s]+)?(\d+)?\s*(<[\w\W]*?>)?\s*(\w+)\s+(\d+)', text):
         day = m.group(1)
         day2 = m.group(3)
         month = m.group(5)
@@ -338,15 +338,15 @@ def get_date_values(xml_folder, filename, processing_folder=""):
     return (data, parsing_error, date_not_found, date_error)
     
 
-
+start_time = time.time()
 open("data/errors-DateNotFound.txt", 'w').close()
 open("data/errors-DateError.txt", 'w').close()
 open("data/errors-ParsingError.txt", 'w').close()
 open("data/errors-NoMatchingFile.txt", 'w').close()
 
 processing_root = "data"
-#data_folder = "replacements-bucket"
-data_folder = "test-data"
+data_folder = "replacements-bucket"
+#data_folder = "test-data"
 
 datasets = load_replacement_data(processing_root, data_folder)
 
@@ -365,3 +365,4 @@ datasets = load_replacement_data(processing_root, data_folder)
 if 'dates' in datasets.keys(): 
     get_date_references(datasets['dates'])
 
+print("My program took", time.time() - start_time, "to run")
