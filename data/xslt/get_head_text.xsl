@@ -22,7 +22,7 @@
 
     <xsl:template match="//akn:header">
         <xsl:text> 
- ||           
+ |||           
 </xsl:text>
         <xsl:for-each select=".//text()">
             <xsl:value-of select="normalize-space(.)"/><xsl:text> </xsl:text>

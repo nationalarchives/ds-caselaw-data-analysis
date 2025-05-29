@@ -16,12 +16,13 @@
                     <xsl:text>|</xsl:text>
                     <!-- <xsl:value-of select="./@*"/>  -->
                 
-                    <xsl:if test="not(./@*)">|</xsl:if>
+                    <xsl:if test="not(./@*)">||</xsl:if>
+                
                     <xsl:for-each select="./@*">
-                        <xsl:text>|</xsl:text><xsl:value-of select="name(.)"/><xsl:text>=</xsl:text><xsl:value-of select="normalize-space(.)"/>
+                        <xsl:text>||</xsl:text><xsl:value-of select="name(.)"/><xsl:text>=</xsl:text><xsl:value-of select="normalize-space(.)"/>
                     </xsl:for-each>  
                 
-                    <xsl:text> ||</xsl:text>
+                    <xsl:text> |||</xsl:text>
                     <xsl:if test="text()">
                         <xsl:value-of select="normalize-space(.)"/>
                     </xsl:if>
