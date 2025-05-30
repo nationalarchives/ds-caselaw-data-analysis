@@ -45,10 +45,10 @@ def process_parts(pass_num, filename, parts):
                    
     return parts_list
         
-def output_to_text_files(processing_root, filename, texts):    
-    bodytextfile_path = Path(processing_root, "extracted_text", filename + "_body.txt")
-    headtextfile_path = Path(processing_root, "extracted_text", filename + "_head.txt")
-    partfile_path = Path(processing_root, "extracted_values", filename + ".txt")
+def output_to_text_files(processing_root, pass_num, filename, texts):    
+    bodytextfile_path = Path(processing_root, "extracted_text", pass_num, filename + "_body.txt")
+    headtextfile_path = Path(processing_root, "extracted_text", pass_num, filename + "_head.txt")
+    partfile_path = Path(processing_root, "extracted_values", pass_num, filename + ".txt")
     
     parts, head_text, body_text = texts
     
@@ -172,7 +172,7 @@ processing_root = "data"
 #data_paths = ["xml-enriched-bucket-test", "xml-second-phase-enriched-bucket-test", "xml-third-phase-enriched-bucket-test"]
 #pass_num = {"xml-enriched-bucket-test":1, "xml-second-phase-enriched-bucket-test":2, "xml-third-phase-enriched-bucket-test":3}
 data_paths = ["xml-enriched-bucket", "xml-second-phase-enriched-bucket", "xml-third-phase-enriched-bucket"]
-pass_num = {"xml-enriched-bucket":1, "xml-second-phase-enriched-bucket":2, "xml-third-phase-enriched-bucket":3}
+pass_num = {"xml-enriched-bucket":0, "xml-second-phase-enriched-bucket":1, "xml-third-phase-enriched-bucket":2}
 cache_path = processing_root + "/processing/cache/extracted_data"
 
 filenames = get_filenames(processing_root, data_paths) 
@@ -187,6 +187,7 @@ for data_path in data_paths:
     
     exists_count = 0
     not_exists_count = 0
+    current_pass = "pass" + str(pass_num[data_path])
          
     for filename in filenames: 
         
@@ -213,17 +214,17 @@ for data_path in data_paths:
                 
             body_text = ' '.join(str(body_text).split())
             
-            output_to_text_files(processing_root, filename, (parts, head_text, body_text))
+            output_to_text_files(processing_root, current_pass, filename, (parts, head_text, body_text))
             
             # parts dataframes
-            parts_values = process_parts(pass_num[data_path], filename, str(parts))
+            parts_values = process_parts(current_pass, filename, str(parts))
             new_values = split(pd.DataFrame(parts_values))            
             parts_data_dict = combine(parts_data_dict, new_values)       
             
             # text dataframe  
             if body_text not in body_set or head_text not in head_set:
                 #print("Adding value to text_list")
-                text_list.append({"pass":pass_num[data_path], "file": filename, "head_text": head_text, 'body_text':body_text})
+                text_list.append({"pass":current_pass, "file": filename, "head_text": head_text, 'body_text':body_text})
                 head_set.add(head_text)
                 body_set.add(body_text)
                        
