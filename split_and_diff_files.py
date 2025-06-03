@@ -27,7 +27,12 @@ def process_parts(pass_num, filename, parts):
     parts_list = []
     
     for part in parts.strip().split("\n"):
-        element, attributes, text = part.split("|||")    
+        try:
+            element, attributes, text = part.split("|||", 2)   
+        except ValueError as e:
+            print("Can't split line in "  + filename + ": " + part + ": " + str(e))
+            break
+            
         part_dict = {"pass":pass_num, "file": filename, "element": element.strip(), 'text':text.strip()}
         
         if '||' in attributes:
@@ -44,6 +49,48 @@ def process_parts(pass_num, filename, parts):
         parts_list.append(part_dict)
                    
     return parts_list
+
+
+def parts_to_df(processing_root, pass_num = ""):
+    
+    parts_list = []
+    parts_data_dict = {}
+    
+    if len(pass_num) > 0:    
+        print("Processing " + pass_num)
+        parts_list += get_parts_values(processing_root, pass_num)    
+    else:            
+        for i in range(3):
+            pass_num = "pass" + str(i)
+            print("Processing " + pass_num)
+            parts_list += get_parts_values(processing_root, pass_num)
+    
+    #print(parts_list)                    
+    parts_data_dict = split(pd.DataFrame(parts_list))            
+
+    print_element_info(parts_data_dict)
+    
+    for element, element_data in parts_data_dict.items():
+        element_data.to_pickle(Path(cache_path, element + ".pkl"))
+        
+    return parts_data_dict
+
+def get_parts_values(processing_root, pass_num):
+    parts_list = []
+    count = 0
+    
+    for file in Path(processing_root, "extracted_values", pass_num).glob("*.txt"):  
+        filename = Path(file).stem
+        with open(file, "r", encoding="utf-8") as myfile:
+            parts = myfile.read()
+            parts_list += process_parts(pass_num, filename, parts)
+            count += 1
+            
+        if count % 10000 == 0:
+            print("Processed " + str(count) + " extracted value files")
+                   
+    return parts_list             
+
         
 def output_to_text_files(processing_root, pass_num, filename, texts):    
     bodytextfile_path = Path(processing_root, "extracted_text", pass_num, filename + "_body.txt")
@@ -60,9 +107,10 @@ def output_to_text_files(processing_root, pass_num, filename, texts):
             myfile.write(body_text)   
             
         with open(partfile_path, "w", encoding="utf-8") as myfile:
-            myfile.write(str(parts))  
+            myfile.write(parts)  
     except IOError as e:
         print("Could not save file: " + str(e))
+
     
 def parse_file(folder, filename):
     get_head_text_transform_file = Path("data", "xslt", "get_head_text.xsl")
@@ -98,6 +146,69 @@ def parse_file(folder, filename):
     
     return(parts, head_text, body_text)
 
+
+def read_xml_file(folder_path, filename):
+    parts, head_text, body_text = parse_file(folder_path, filename)
+    #print("file: " + str(file_to_check) + " exists") 
+    
+    if "|||" in str(head_text):
+        head_parts = str(head_text).split("|||")            
+        head_text = ' '.join(head_parts[0].split()) + "\n\n" + ' '.join(head_parts[1].split())
+    else:
+        head_text = str(head_text)
+        
+    body_text = ' '.join(str(body_text).split())    
+    
+    return (parts, head_text, body_text)
+
+
+def read_text_file(processing_file, current_pass, filename):    
+    headtextfile_path = Path(processing_file, "extracted_text", current_pass, filename + "_head.txt")
+    bodytextfile_path = Path(processing_file, "extracted_text", current_pass, filename + "_body.txt")
+    valuestextfile_path = Path(processing_file, "extracted_values", current_pass, filename + ".txt")
+    
+    #print(headtextfile_path)
+    #print(bodytextfile_path)
+    #print(valuestextfile_path)
+    
+    try:
+        with open(headtextfile_path, "r", encoding="utf-8") as myfile:
+            head_text = myfile.read()
+        
+        with open(bodytextfile_path, "r", encoding="utf-8") as myfile:
+            body_text = myfile.read()
+        
+        with open(valuestextfile_path, "r", encoding="utf-8") as myfile:
+            parts = myfile.read()
+                 
+    except IOError as e:
+        print("Could not read file: " + str(e))    
+               
+    return (parts, head_text, body_text)
+
+
+def input_from_text_files(processing_root, pass_num = -1):
+    parts_dict = {}
+    head_text_dict = {}
+    body_text_dict = {}
+    
+    if pass_num < 0:  #Get all folders
+        for i in range(3):
+            for file in Path(processing_root, "pass" + str(i)).glob("*.txt"):  
+                pass
+    else:
+        for file in Path(processing_root, "extracted_text").glob("*_body.txt"):  
+                pass
+
+        for file in Path(processing_root, "extracted_text").glob("*_head.txt"):  
+                pass
+            
+        for file in Path(processing_root, "extracted_values").glob("*.txt"):  
+                pass
+            
+    return(parts_dict, head_text_dict, body_text_dict)
+
+
 def print_element_info(data_dict):
     
     for element, element_data in data_dict.items():
@@ -122,9 +233,12 @@ def print_element_info(data_dict):
                     myfile.write("\n")
                     myfile.write(element_data.tail(5).to_string()) 
 
+
 def split(data):
     
     dataframes = {}
+    
+    #print(data.info)
        
     element_list = data['element'].astype(str).unique()
 
@@ -139,6 +253,7 @@ def split(data):
         dataframes[element.replace(":", "_")] = temp_df
 
     return dataframes
+
 
 def combine(dict1, dict2):
     combined_dict = {}
@@ -167,15 +282,18 @@ def combine(dict1, dict2):
     # return the dict
     return combined_dict
 
+
+
 start_time = time.time()
 processing_root = "data"
-#data_paths = ["xml-enriched-bucket-test", "xml-second-phase-enriched-bucket-test", "xml-third-phase-enriched-bucket-test"]
-#pass_num = {"xml-enriched-bucket-test":1, "xml-second-phase-enriched-bucket-test":2, "xml-third-phase-enriched-bucket-test":3}
-data_paths = ["xml-enriched-bucket", "xml-second-phase-enriched-bucket", "xml-third-phase-enriched-bucket"]
-pass_num = {"xml-enriched-bucket":0, "xml-second-phase-enriched-bucket":1, "xml-third-phase-enriched-bucket":2}
+data_paths = ["xml-enriched-bucket-test", "xml-second-phase-enriched-bucket-test", "xml-third-phase-enriched-bucket-test"]
+pass_num = {"xml-enriched-bucket-test":0, "xml-second-phase-enriched-bucket-test":1, "xml-third-phase-enriched-bucket-test":2}
+#data_paths = ["xml-third-phase-enriched-bucket", "xml-second-phase-enriched-bucket", "xml-enriched-bucket"  ]
+#pass_num = {"xml-enriched-bucket":0, "xml-second-phase-enriched-bucket":1, "xml-third-phase-enriched-bucket":2}
 cache_path = processing_root + "/processing/cache/extracted_data"
 
 filenames = get_filenames(processing_root, data_paths) 
+not_matched = []
 parts_data_dict = {}
 text_list = []
 body_set = set()
@@ -193,31 +311,30 @@ for data_path in data_paths:
         
         data_root = [filename, data_path]
         
-        folder_path = Path(processing_root, data_path)
+        xml_folder_path = Path(processing_root, data_path)
        
         #xml_file1 = Path(processing_root, folder1, filename + ".xml") 
         #xml_file2 = Path(processing_root, folder2, filename + ".xml") 
         #xml_file3 = Path(processing_root, folder3, filename + ".xml") 
         
-        file_to_check = Path(str(folder_path), str(filename) + ".xml")
+        xml_file_to_check = Path(str(xml_folder_path), str(filename) + ".xml")
+        values_file_to_check = Path(processing_root, "extracted_values", current_pass, str(filename) + ".txt")
+        head_file_to_check = Path(processing_root, "extracted_text", current_pass, str(filename) + "_head.txt")
+        body_file_to_check = Path(processing_root, "extracted_text", current_pass, str(filename) + "_body.txt")
         
-        if file_to_check.exists():
+        if xml_file_to_check.exists():
             exists_count += 1
-            parts, head_text, body_text = parse_file(folder_path, filename)
-            #print("file: " + str(file_to_check) + " exists") 
-            
-            if "|||" in str(head_text):
-                head_parts = str(head_text).split("|||")            
-                head_text = ' '.join(head_parts[0].split()) + "\n\n" + ' '.join(head_parts[1].split())
+            if values_file_to_check.exists() and head_file_to_check.exists() and body_file_to_check.exists():
+                parts, head_text, body_text = read_text_file(processing_root, current_pass, filename)
             else:
-                head_text = str(head_text)
-                
-            body_text = ' '.join(str(body_text).split())
+                parts, head_text, body_text = read_xml_file(xml_folder_path, filename)
+                parts = str(parts)
+                output_to_text_files(processing_root, current_pass, filename, (parts, head_text, body_text))     
             
-            output_to_text_files(processing_root, current_pass, filename, (parts, head_text, body_text))
             
-            # parts dataframes
-            parts_values = process_parts(current_pass, filename, str(parts))
+            '''
+            # parts dataframes    
+            parts_values = process_parts(current_pass, filename, parts)
             new_values = split(pd.DataFrame(parts_values))            
             parts_data_dict = combine(parts_data_dict, new_values)       
             
@@ -227,23 +344,36 @@ for data_path in data_paths:
                 text_list.append({"pass":current_pass, "file": filename, "head_text": head_text, 'body_text':body_text})
                 head_set.add(head_text)
                 body_set.add(body_text)
-                       
+            '''  
+                     
         else:
             not_exists_count += 1
+            not_matched.append(filename)
             #print("file: " + str(file_to_check) + " does not exist")   
             
     print("Files checked: " + str(exists_count))
-    print("Files mismatched: " + str(not_exists_count))
-    print_element_info(parts_data_dict)
+    if not_exists_count > 0:
+        print("Files mismatched: " + str(not_exists_count) + " (Missing:" + ','.join(not_matched) + ")")
+    #print_element_info(parts_data_dict)
 
+'''
 text_dataframe = pd.DataFrame.from_dict(text_list)
 text_dataframe.to_pickle(Path(cache_path, "plain_text.pkl"))
 
 for element, element_data in parts_data_dict.items():
     element_data.to_pickle(Path(cache_path, element + ".pkl"))
+'''
+read_time = time.time()
 
-duration = time.time() - start_time
-time = datetime(1,1,1) + timedelta(seconds=duration)
-readable_duration = str(time.day-1) + ":" + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second)
+duration = read_time - start_time
+current_time = datetime(1,1,1) + timedelta(seconds=duration)
+readable_duration = str(current_time.day-1) + ":" + str(current_time.hour) + ":" + str(current_time.minute) + ":" + str(current_time.second)
+print("Reading took " + readable_duration +  " to run") 
 
-print("Reading and pickling took " + readable_duration +  " to run")        
+parts_to_df(processing_root, "pass2")
+
+
+duration = time.time() - read_time
+current_time = datetime(1,1,1) + timedelta(seconds=duration)
+readable_duration = str(current_time.day-1) + ":" + str(current_time.hour) + ":" + str(current_time.minute) + ":" + str(current_time.second)
+print("Pickling took " + readable_duration +  " to run")        
