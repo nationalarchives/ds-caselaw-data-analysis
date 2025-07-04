@@ -6,24 +6,51 @@ import numpy as np
 import time
 import dist_graphs as dg
 
+'''
+input_from_values_files(processing_root, pass_num = "")
+analyse_refs(pkl_file, case=True, leg=True)
+generate_blank_matrix(index_names)
+create_graph(df, col, limit = -1, cutoff = 1, type="leg")
+update_colloc_matrix(matrix, ref_list)
+get_distribution(df, key)
+get_root_href(href)
+get_section(href)
+legislation_refs(legislation_df, start_time)
+case_refs (cases_df)
+
+'''
+
+'''
+[To Do] - refactor the create_graph so the processing of the data into the nodes and edges dictionary is separated out and reading from the csv/txt outputs from previous analysis.
+[To Do] - Co-reference distribution analysis
+[To Do] - cluster analysis
+'''
+
+
 
 def input_from_values_files(processing_root, pass_num = ""):
+    ''' Function reads in the values from the text files in the processing root
+        If a pass_num is given then only get the values from that pass
+    '''
+    
     parts_dict = {}
     head_text_dict = {}
     body_text_dict = {}
     
     if len(pass_num) > 0:  #Get all folders
         for i in range(3):
-            for file in Path(processing_root, str(i)).glob("*.txt"):  
+            for file in Path(processing_root, "extracted_values", "pass" + str(i)).glob("*.txt"):  
                 pass
     else:            
-        for file in Path(processing_root, "extracted_values").glob("*.txt"):  
+        for file in Path(processing_root, "extracted_values", pass_num).glob("*.txt"):  
                 pass
             
     return(parts_dict, head_text_dict, body_text_dict)
 
 
-def analyse_refs(pkl_file, case=True, leg=True):     
+def analyse_refs(pkl_file, case=True, leg=True):   
+    ''' Function reads the pickle file and runs the functions of the specified types
+    '''  
     references_df = pd.read_pickle(pkl_file)
     
     if case:
@@ -36,6 +63,9 @@ def analyse_refs(pkl_file, case=True, leg=True):
 
 
 def generate_blank_matrix(index_names):
+    ''' Funcation creates a blank matrix with the index names as the columns and row values
+    '''
+
     values = {}
     
     print(len(index_names))
@@ -55,6 +85,11 @@ def generate_blank_matrix(index_names):
         
 
 def create_graph(df, col, limit = -1, cutoff = 1, type="leg"):
+    ''' Creates a weighted network graph based on a named column (col) in the dataframe (df). 
+            If an optional limit is given then it only draws that number of rows otherwise it does all the rows. 
+            Only edges with a value of the specified cutoff are drawn.
+            Text files with the weighting matrix and distribution are saved.
+    '''
     
     before_processing = time.time()
     
@@ -144,7 +179,7 @@ def create_graph(df, col, limit = -1, cutoff = 1, type="leg"):
         weighting_distribution_path = Path("data", "weighting_distribution_" + type + "_" + str(limit) + ".txt")     
         num_of_refs_distribution_path = Path("data", "num_of_refs_distribution_" + type + "" + str(limit) + ".txt")
     else:
-        weighting_df.to_csv("data/weighting.csv")
+        weighting_df.to_csv("data/weighting_" + type + ".csv")
         weighting_distribution_path = Path("data", "weighting_distribution_" + type + ".txt")     
         num_of_refs_distribution_path = Path("data", "num_of_refs_distribution_" + type + ".txt")
         
@@ -164,6 +199,7 @@ def create_graph(df, col, limit = -1, cutoff = 1, type="leg"):
 
 
 def update_colloc_matrix(matrix, ref_list):   
+    ''' function takes an existing matrix of coreferences and expands it with a list of refernces from the same source. The expanded matrix is returned '''
     for ref1 in ref_list:
         for ref2 in ref_list:
             if ref1 != ref2:
@@ -187,19 +223,27 @@ def update_colloc_matrix(matrix, ref_list):
                
 
 def get_distribution(df, key):
+    ''' For a given dataframe, the function groups the values by the specified column (key) and by file. Returns list with count of each key value '''
+    
     sorted_cases = df.sort_values(['file', 'pass'], ascending=False)     
     list_of_refs_by_file = sorted_cases.groupby([key, 'file'], sort=False).count().sort_values(ascending=False)  #.reset_index(['count']).sort_values(['count'], ascending=False)
     
     print(list_of_refs_by_file.head())
     return list_of_refs_by_file.groupby([key], sort=False).count().sort_values(ascending=False)      
 
+
 def get_root_href(href):
+    ''' Function returns the base document information if section information it exists in the URL '''
+        
     if "/section" in href:
         return href.split("/section")[0]
     else:
         return href
 
+
 def get_section(href):
+    ''' Function returns the section information if it exists in the URL '''
+
     if "/section" in href:
         return "/section" + href.split("/section")[1]
     else:
@@ -207,6 +251,8 @@ def get_section(href):
      
 
 def legislation_refs(legislation_df, start_time):
+    ''' Function takes a dataframe of legislation references and analyses them '''
+
     # Legislation
         # Which legislation and how often
     
@@ -223,10 +269,10 @@ def legislation_refs(legislation_df, start_time):
         
         # Specific reference - what and how often
         # Clustering      
-    
-    
+   
 
-def case_refs (cases_df):   
+def case_refs (cases_df):  
+    ''' Function takes a dataframe of case references and analyses them ''' 
     # Case Law
         # Which cases and how often  
     #print(cases_df.head(10))
