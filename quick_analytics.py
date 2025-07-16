@@ -83,12 +83,18 @@ def generate_blank_matrix(index_names):
     
     return (values, index)
 
-def load_graph_data(weighting_csv_path):
+def load_graph_data(weighting_csv_path, cuttoff = 1):
     nodes_and_edges = []
 
     weighting_df = pd.read_csv(weighting_csv_path)
+    list_of_nodes = [*weighting_df]
 
-    
+    for node1 in list_of_nodes:
+        for node2 in list_of_nodes:
+            if node1 != node2:
+                weighted_value = weighting_df.at[node1, node2]
+                if weighted_value > cuttoff:
+                    nodes_and_edges.append({"node1":node1, "node2":node2, "weighted_value": weighted_value})
 
     return nodes_and_edges
 
