@@ -8,13 +8,13 @@ import io
 
 '''
 get_filenames(processing_root, data_paths)
-process_parts(pass_num, filename, parts)
-parts_to_df(processing_root, pass_num = "")
-get_parts_values(processing_root, pass_num)
-output_to_text_files(processing_root, pass_num, filename, texts)
+process_parts(folder, filename, parts)
+parts_to_df(processing_root, folders)
+get_parts_values(processing_root, folder)
+output_to_text_files(processing_root, folder, filename, texts)
 parse_file(folder, filename)
 read_xml_file(folder_path, filename)
-input_from_text_files(processing_root, pass_num = -1)
+input_from_text_files(processing_root, folders)
 print_element_info(data_dict)
 split(data)
 combine(dict1, dict2)
@@ -49,7 +49,7 @@ def get_filenames(processing_root, data_paths):
     return filenames
 
 
-def process_parts(pass_num, filename, parts):
+def process_parts(folder, filename, parts):
     ''' For a given file in a given pass the function processes the values extracted from the tag elements into a list of dictionaries, one for each file. '''
 
     parts_list = []
@@ -61,7 +61,7 @@ def process_parts(pass_num, filename, parts):
             print("Can't split line in "  + filename + ": " + part + ": " + str(e))
             break
             
-        part_dict = {"pass":pass_num, "file": filename, "element": element.strip(), 'text':text.strip()}
+        part_dict = {"data":folder, "file": filename, "element": element.strip(), 'text':text.strip()}
         
         if '||' in attributes:
             attribute_list = attributes.split("||")
@@ -72,7 +72,7 @@ def process_parts(pass_num, filename, parts):
                     attr, value = attribute.split("=", 1)
                     part_dict.update({attr.strip(): value.strip()})
                 except ValueError as e:
-                    print("Error in pass: " + str(pass_num) + ", file: " + filename + ", attribute: " + attribute + " - " + str(e))
+                    print("Error in data: " + folder + ", file: " + filename + ", attribute: " + attribute + " - " + str(e))
         
         parts_list.append(part_dict)
                    
@@ -80,7 +80,7 @@ def process_parts(pass_num, filename, parts):
 
 
 def parts_to_df(processing_root, cache_path, folders):
-    ''' If a pass_num is given then get the parts values for the specified folder, otherwise get them for all folders, create a dataframe from the list of values. Split the dataframe into dictionary of dataframes by element type, print out the information about each element, pickle the dataframes and return the dictionay of dataframes.
+    ''' For the folders in the list, get the parts values and create a dataframe from the list of values. Split the dataframe into dictionary of dataframes by element type, print out the information about each element, pickle the dataframes and return the dictionay of dataframes.
     '''    
     
     parts_list = []
@@ -102,17 +102,17 @@ def parts_to_df(processing_root, cache_path, folders):
     return parts_data_dict
 
 
-def get_parts_values(processing_root, pass_num):
-    ''' Function reads the values from the text files in the processing folder for a given pass and reads the text into a list'''
+def get_parts_values(processing_root, folder):
+    ''' Function reads the values from the text files in the processing folder for a given folder and reads the text into a list'''
 
     parts_list = []
     count = 0
     
-    for file in Path(processing_root, "extracted_values", pass_num).glob("*.txt"):  
+    for file in Path(processing_root, "extracted_values", folder).glob("*.txt"):  
         filename = Path(file).stem
         with open(file, "r", encoding="utf-8") as myfile:
             parts = myfile.read()
-            parts_list += process_parts(pass_num, filename, parts)
+            parts_list += process_parts(folder, filename, parts)
             count += 1
             
         if count % 10000 == 0:
@@ -121,16 +121,16 @@ def get_parts_values(processing_root, pass_num):
     return parts_list             
 
         
-def output_to_text_files(processing_root, pass_num, filename, texts):   
+def output_to_text_files(processing_root, folder, filename, texts):   
     ''' Write the extracted values (texts) to text files.
         texts should be a triple with the parts values, head text values and body text values in that order.
 
         Writes text files with extracted values
     '''
 
-    bodytextfile_path = Path(processing_root, "extracted_text", pass_num, filename + "_body.txt")
-    headtextfile_path = Path(processing_root, "extracted_text", pass_num, filename + "_head.txt")
-    partfile_path = Path(processing_root, "extracted_values", pass_num, filename + ".txt")
+    bodytextfile_path = Path(processing_root, "extracted_text", folder, filename + "_body.txt")
+    headtextfile_path = Path(processing_root, "extracted_text", folder, filename + "_head.txt")
+    partfile_path = Path(processing_root, "extracted_values", folder, filename + ".txt")
     
     parts, head_text, body_text = texts
     
@@ -203,13 +203,13 @@ def read_xml_file(folder_path, filename):
     return (parts, head_text, body_text)
 
 
-def read_text_file(processing_file, current_pass, filename):    
+def read_text_file(processing_file, current_folder, filename):    
     ''' For the specified file, read the head text, body text and element values from the extracted text file. Returns the values in a tuple in the order part values, head text body text
     '''
 
-    headtextfile_path = Path(processing_file, "extracted_text", current_pass, filename + "_head.txt")
-    bodytextfile_path = Path(processing_file, "extracted_text", current_pass, filename + "_body.txt")
-    valuestextfile_path = Path(processing_file, "extracted_values", current_pass, filename + ".txt")
+    headtextfile_path = Path(processing_file, "extracted_text", current_folder, filename + "_head.txt")
+    bodytextfile_path = Path(processing_file, "extracted_text", current_folder, filename + "_body.txt")
+    valuestextfile_path = Path(processing_file, "extracted_values", current_folder, filename + ".txt")
     
     #print(headtextfile_path)
     #print(bodytextfile_path)
@@ -231,24 +231,24 @@ def read_text_file(processing_file, current_pass, filename):
     return (parts, head_text, body_text)
 
 
-def input_from_text_files(processing_root, pass_num = -1):
-    ''' If a pass_num is given then get the parts values for the specified pass, otherwise get them for all passes, get the extracted values from the text files.
-        [Need to test!]
+def input_from_text_files(processing_root, folders = []):
+    ''' If folder names are given then get the parts values for the specified folder, otherwise get them from the extracted values folder. Get the extracted values from the text files.
+        [Not implemented yet!]
     '''
 
     parts_dict = {}
     head_text_dict = {}
     body_text_dict = {}
     
-    if pass_num < 0:  #Get all folders
-        for i in range(3):         
-            current_pass = "pass" + str(i)  
-            for file in Path(processing_root, "extracted_values", current_pass).glob("*.txt"):  
+
+    if len(folders) > 0:  #Get all folders
+        for folder in folders:         
+            for file in Path(processing_root, "extracted_values", folder).glob("*.txt"):  
                 parts, head_text, body_text = read_text_file(processing_root, current_pass, file)
                 # DO SOMETHING HERE
 
     else:   
-        for file in Path(processing_root, "extracted_values", pass_num).glob("*.txt"):  
+        for file in Path(processing_root, "extracted_values").glob("*.txt"):  
             parts, head_text, body_text = read_text_file(processing_root, pass_num, file)
             # DO SOMETHING HERE
             
@@ -354,7 +354,7 @@ def generate_dfs(start_time, processing_root, cache_path, folders=[]):
     return dict_of_dfs 
 
 
-def main(processing_root, data_paths, pass_nums, cache_path, folders = []):
+def main(processing_root, data_paths, folder_map, cache_path, folders = []):
     start_time = time.time()
 
     filenames = get_filenames(processing_root, data_paths) 
@@ -370,7 +370,7 @@ def main(processing_root, data_paths, pass_nums, cache_path, folders = []):
         
         exists_count = 0
         not_exists_count = 0
-        current_pass = "pass" + str(pass_nums[data_path])
+        current_folder = folder_map[data_path]
             
         for filename in filenames: 
             
@@ -383,18 +383,18 @@ def main(processing_root, data_paths, pass_nums, cache_path, folders = []):
             #xml_file3 = Path(processing_root, folder3, filename + ".xml") 
             
             xml_file_to_check = Path(str(xml_folder_path), str(filename) + ".xml")
-            values_file_to_check = Path(processing_root, "extracted_values", current_pass, str(filename) + ".txt")
-            head_file_to_check = Path(processing_root, "extracted_text", current_pass, str(filename) + "_head.txt")
-            body_file_to_check = Path(processing_root, "extracted_text", current_pass, str(filename) + "_body.txt")
+            values_file_to_check = Path(processing_root, "extracted_values", current_folder, str(filename) + ".txt")
+            head_file_to_check = Path(processing_root, "extracted_text", current_folder, str(filename) + "_head.txt")
+            body_file_to_check = Path(processing_root, "extracted_text", current_folder, str(filename) + "_body.txt")
             
             if xml_file_to_check.exists():
                 exists_count += 1
                 if values_file_to_check.exists() and head_file_to_check.exists() and body_file_to_check.exists():
-                    parts, head_text, body_text = read_text_file(processing_root, current_pass, filename)
+                    parts, head_text, body_text = read_text_file(processing_root, current_folder, filename)
                 else:
                     parts, head_text, body_text = read_xml_file(xml_folder_path, filename)
                     parts = str(parts)
-                    output_to_text_files(processing_root, current_pass, filename, (parts, head_text, body_text))     
+                    output_to_text_files(processing_root, current_folder, filename, (parts, head_text, body_text))     
                 
                 
                 '''
@@ -430,10 +430,10 @@ def main(processing_root, data_paths, pass_nums, cache_path, folders = []):
     '''
 
     if len(folders) == 0:
-        pass_folders = []
-        for pass_num in pass_nums.values():
-            pass_folders.append("pass"+ str(pass_num))
-        generate_dfs(start_time, processing_root, cache_path, pass_folders)
+        data_folders = []
+        for folder in folder_map.values():
+            data_folders.append(folder)
+        generate_dfs(start_time, processing_root, cache_path, data_folders)
     else:
         generate_dfs(start_time, processing_root, cache_path, folders)
 
@@ -443,14 +443,14 @@ if __name__ == '__main__':
 
     #test data
     test_paths = ["xml-test"]
-    test_pass_nums = {"xml-test":0}
+    test_pass_nums = {"xml-test":"test"}
     test_cache_path = processing_root + "/processing/test/cache/extracted_data"
 
     #FCL data
     test_enrichment_paths = ["xml-enriched-bucket-test", "xml-second-phase-enriched-bucket-test", "xml-third-phase-enriched-bucket-test"]
-    test_enrichment_pass_nums = {"xml-enriched-bucket-test":0, "xml-second-phase-enriched-bucket-test":1, "xml-third-phase-enriched-bucket-test":2}
+    test_enrichment_pass_nums = {"xml-enriched-bucket-test":"pass0", "xml-second-phase-enriched-bucket-test":"pass1", "xml-third-phase-enriched-bucket-test":"pass2"}
     enrichment_paths = ["xml-third-phase-enriched-bucket", "xml-second-phase-enriched-bucket", "xml-enriched-bucket"]
-    enrichment_pass_nums = {"xml-enriched-bucket":0, "xml-second-phase-enriched-bucket":1, "xml-third-phase-enriched-bucket":2}
+    enrichment_pass_nums = {"xml-enriched-bucket":"pass0", "xml-second-phase-enriched-bucket":"pass1", "xml-third-phase-enriched-bucket":"pass2"}
     enrichment_cache_path = processing_root + "/processing/cache/extracted_data"
    
     main(processing_root, test_paths, test_pass_nums, test_cache_path) 
