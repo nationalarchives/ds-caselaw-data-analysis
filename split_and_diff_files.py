@@ -94,7 +94,7 @@ def parts_to_df(processing_root, cache_path, folders):
     #print(parts_list)                    
     parts_data_dict = split(pd.DataFrame(parts_list))            
 
-    print_element_info(parts_data_dict)
+    print_element_info(cache_path, parts_data_dict)
     
     for element, element_data in parts_data_dict.items():
         element_data.to_pickle(Path(cache_path, element + ".pkl"))
@@ -255,7 +255,7 @@ def input_from_text_files(processing_root, pass_num = -1):
     return(parts_dict, head_text_dict, body_text_dict)
 
 
-def print_element_info(data_dict):
+def print_element_info(folder_path, data_dict):
     ''' Save info about each element dictionary into text files.
     '''
     
@@ -264,7 +264,7 @@ def print_element_info(data_dict):
         num_rows = element_data.shape[1] 
         #element_details_file = element.replace(":", "_")
 
-        with open(Path("temp", element + ".txt"), "w", encoding="utf-8") as myfile:
+        with open(Path(folder_path, element + ".txt"), "w", encoding="utf-8") as myfile:
                 buffer = io.StringIO()
                 element_data.info(buf = buffer)
             
