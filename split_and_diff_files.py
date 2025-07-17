@@ -244,12 +244,12 @@ def input_from_text_files(processing_root, folders = []):
     if len(folders) > 0:  #Get all folders
         for folder in folders:         
             for file in Path(processing_root, "extracted_values", folder).glob("*.txt"):  
-                parts, head_text, body_text = read_text_file(processing_root, current_pass, file)
+                parts, head_text, body_text = read_text_file(processing_root, folder, file)
                 # DO SOMETHING HERE
 
     else:   
         for file in Path(processing_root, "extracted_values").glob("*.txt"):  
-            parts, head_text, body_text = read_text_file(processing_root, pass_num, file)
+            parts, head_text, body_text = read_text_file(processing_root, folder, file)
             # DO SOMETHING HERE
             
     return(parts_dict, head_text_dict, body_text_dict)
