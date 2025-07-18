@@ -48,18 +48,22 @@ def input_from_values_files(processing_root, pass_num = ""):
     return(parts_dict, head_text_dict, body_text_dict)
 
 
-def analyse_refs(processing_root, pkl_file, case=True, leg=True):   
+def analyse_refs(processing_root, pkl_file, columns=[], case=True, leg=True):   
     ''' Function reads the pickle file and runs the functions of the specified types
     '''  
     references_df = pd.read_pickle(pkl_file)
-    
-    if case:
-        cases_df = references_df[references_df['uk:type'] == "case"]
-        case_refs(processing_root, cases_df)
-        
-    if leg:
-        legislation_df = references_df[references_df['uk:type'] == "legislation"] 
-        legislation_refs(processing_root, legislation_df, start_time)
+
+    if len(columns) > 0:
+        process_refs(processing_root, references_df, columns)
+
+    if 'uk:type' in references_df.columns:    
+        if case:
+            cases_df = references_df[references_df['uk:type'] == "case"]
+            case_refs(processing_root, cases_df)
+            
+        if leg:
+            legislation_df = references_df[references_df['uk:type'] == "legislation"] 
+            legislation_refs(processing_root, legislation_df)
 
 
 def generate_blank_matrix(index_names):
@@ -98,13 +102,15 @@ def load_graph_data(weighting_csv_path, cuttoff = 1):
 
     return nodes_and_edges
 
-def generate_graph_data(processing_root, df, col, limit = -1, cutoff = 1):
+def generate_graph_data(processing_root, df, col, limit=-1, cutoff=1, type="test"):
     before_processing = time.time()
     
+    #print(df)
+
     file_list = df['file'].astype(str).unique()
     weighting = {}
     
-    print(len(file_list))
+    print("Number of files" + str(len(file_list)))
     
     linked_refs_lists = []
     
@@ -181,11 +187,11 @@ def generate_graph_data(processing_root, df, col, limit = -1, cutoff = 1):
     #print(weighting_df)
     
     if limit > 0:
-        weighting_df.to_csv(processing_root, "weighting_" + type + "_" + str(limit) + ".csv")
+        weighting_df.to_csv(Path(processing_root, "weighting_" + type + "_" + str(limit) + ".csv"))
         weighting_distribution_path = Path(processing_root, "weighting_distribution_" + type + "_" + str(limit) + ".txt")     
         num_of_refs_distribution_path = Path(processing_root, "num_of_refs_distribution_" + type + "" + str(limit) + ".txt")
     else:
-        weighting_df.to_csv(processing_root, "weighting_" + type + ".csv")
+        weighting_df.to_csv(Path(processing_root, "weighting_" + type + ".csv"))
         weighting_distribution_path = Path(processing_root, "weighting_distribution_" + type + ".txt")     
         num_of_refs_distribution_path = Path(processing_root, "num_of_refs_distribution_" + type + ".txt")
 
@@ -199,7 +205,7 @@ def generate_graph_data(processing_root, df, col, limit = -1, cutoff = 1):
 
     return nodes_and_edges
 
-def create_graph(processing_root, df, col, limit = -1, cutoff = 1, type="leg"):
+def create_graph(processing_root, df, col, limit = -1, cutoff = 1, type="test"):
     ''' Creates a weighted network graph based on a named column (col) in the dataframe (df). 
             If an optional limit is given then it only draws that number of rows otherwise it does all the rows. 
             Only edges with a value of the specified cutoff are drawn.
@@ -210,11 +216,12 @@ def create_graph(processing_root, df, col, limit = -1, cutoff = 1, type="leg"):
     else:
         weighting_csv_path = Path(processing_root, "weighting_" + type + ".csv")
 
+    print(weighting_csv_path)
 
     if weighting_csv_path.exists():
         nodes_and_edges = load_graph_data(weighting_csv_path)
     else:
-        nodes_and_edges = generate_graph_data(df, col, limit, cutoff)
+        nodes_and_edges = generate_graph_data(processing_root, df, col, limit, cutoff, type)
             
     dg.draw_weighted_graph(nodes_and_edges)        
     
@@ -251,11 +258,17 @@ def update_colloc_matrix(matrix, ref_list):
 def get_distribution(df, key):
     ''' For a given dataframe, the function groups the values by the specified column (key) and by file. Returns list with count of each key value '''
     
-    sorted_cases = df.sort_values(['file', 'pass'], ascending=False)     
-    list_of_refs_by_file = sorted_cases.groupby([key, 'file'], sort=False).count().sort_values(ascending=False)  #.reset_index(['count']).sort_values(['count'], ascending=False)
+    if 'pass' in df.columns:
+        sorted_values = df.sort_values(['file', 'pass'], ascending=False)   
+    else:
+        sorted_values = df.sort_values(['file', 'data'], ascending=False)     
+
+    list_of_values_by_file = sorted_values.groupby([key, 'file'], sort=False).count()
     
-    print(list_of_refs_by_file.head())
-    return list_of_refs_by_file.groupby([key], sort=False).count().sort_values(ascending=False)      
+    #.sort_values(by='Count', ascending=False)  #.reset_index(['count']).sort_values(['count'], ascending=False)
+    
+    print(list_of_values_by_file.head())
+    return "Function ran"  #list_of_values_by_file.groupby([key], sort=False).count().sort_values(by='count', ascending=False)      
 
 
 def get_root_href(href):
@@ -276,7 +289,7 @@ def get_section(href):
         return ""
      
 
-def legislation_refs(processing_root, legislation_df, start_time):
+def legislation_refs(processing_root, legislation_df):
     ''' Function takes a dataframe of legislation references and analyses them '''
 
     # Legislation
@@ -292,7 +305,6 @@ def legislation_refs(processing_root, legislation_df, start_time):
     #list_of_leg = get_distribution(legislation_df, 'href')
     #print(list_of_leg.head(10))
     #list_of_leg.to_csv("data/legislation.csv")
-        
         # Specific reference - what and how often
         # Clustering      
    
@@ -305,22 +317,37 @@ def case_refs (processing_root, cases_df):
     #list_of_cases = get_distribution(cases_df, 'uk:canonical')
     
     case_refs = cases_df[['file', 'href', 'uk:canonical']]
-    create_graph(processing_root, case_refs, 'uk:canonical', cutoff=2)
+    create_graph(processing_root, case_refs, 'uk:canonical', cutoff=2, type="case")
     
     #print(list_of_cases.head(10))
     #list_of_cases.to_csv("data/cases.csv")
-    
-    
-start_time = time.time()
-processing_root = "data"
-refs_pkl_file = Path(processing_root, "processing", "cache", "extracted_data_full", "ref.pkl")
-
-dg.output_duration(start_time, "Loading")
-
-analyse_refs(processing_root, refs_pkl_file, case=True, leg=False)
 
 
+def process_refs (processing_root, df, columns, limit=100, cutoff=2):
 
+    refs = df[columns]
+    create_graph(processing_root, refs, columns[-1], limit, cutoff, "test")
+
+    list_of_refs = get_distribution(df, columns[-1])
+    print(list_of_refs)
+
+
+
+def main(processing_root, pickle_file, folders, case=True, leg=True):    
+    #start_time = time.time()
+    #dg.output_duration(start_time, "Loading")
+    analyse_refs(processing_root, pickle_file, folders, case, leg)
+
+
+if __name__ == '__main__':
+    processing_root = "data"
+    refs_pkl_file = Path(processing_root, "processing", "cache", "extracted_data_full", "ref.pkl")
+
+    test_pkl_file = Path(processing_root, "processing", "test", "cache", "extracted_data", "ref.pkl")
+
+    folders = ['file', 'href']
+
+    main(processing_root, test_pkl_file, folders, True, False)
 
 
 
