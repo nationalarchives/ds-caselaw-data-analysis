@@ -109,7 +109,7 @@ def load_graph_data(weighting_csv_path, cutoff = 1):
     #print(nodes_and_edges)
     return nodes_and_edges
 
-def generate_graph_data(processing_root, df, col, limit=-1, cutoff=1, type="test"):
+def generate_graph_data(df, col, limit=-1, cutoff=1):
     before_processing = time.time()
     
     #print(df)
@@ -119,9 +119,10 @@ def generate_graph_data(processing_root, df, col, limit=-1, cutoff=1, type="test
     
     print("Number of files" + str(len(file_list)))
     
-    linked_refs_lists = []
-    
+    linked_refs_lists = []    
     num_of_refs_distribution = {}
+    weighting_distribution = {}
+    nodes_and_edges = []
     
     # generate weighting matrix
     if limit > 0:       
@@ -165,9 +166,6 @@ def generate_graph_data(processing_root, df, col, limit=-1, cutoff=1, type="test
     
     matrix_dict, index_list = generate_blank_matrix(list(linked_refs_set))
     
-    weighting_distribution = {}
-    nodes_and_edges = []
-    
     for key_string, weighted_value in weighting.items():
         node1 = key_string.split("-")[0]
         node2 = key_string.split("-")[1] 
@@ -183,14 +181,21 @@ def generate_graph_data(processing_root, df, col, limit=-1, cutoff=1, type="test
                  
         if weighted_value > cutoff:   
             nodes_and_edges.append({"node1":node1, "node2":node2, "weighted_value": weighted_value})
-    
-    dg.output_duration(before_processing, "Processing")    
+
+    processed_data = [pd.DataFrame(matrix_dict, index_list), dict(sorted(weighting_distribution.items())), dict(sorted(num_of_refs_distribution.items()))]
 
     #print(matrix_dict) 
-    #print(index_list)   
-    weighting_df = pd.DataFrame(matrix_dict, index_list)
-    weighting_distribution = dict(sorted(weighting_distribution.items()))
-    num_of_refs_distribution = dict(sorted(num_of_refs_distribution.items()))
+    #print(index_list) 
+
+    dg.output_duration(before_processing, "Processing")   
+
+    return (nodes_and_edges, processed_data)
+
+
+def save_graph_data(processing_root, processed_data, limit=0, type="test"):  
+    weighting_df = processed_data[0]
+    weighting_distribution = processed_data[1]
+    num_of_refs_distribution = processed_data[2]
     #print(weighting_df)
     
     if limit > 0:
@@ -210,7 +215,7 @@ def generate_graph_data(processing_root, df, col, limit=-1, cutoff=1, type="test
     except IOError as e:
         print("Could not save file: " + str(e)) 
 
-    return nodes_and_edges
+
 
 def create_graph(processing_root, df, col, limit=-1, cutoff=1, type="test"):
     ''' Creates a weighted network graph based on a named column (col) in the dataframe (df). 
@@ -218,24 +223,27 @@ def create_graph(processing_root, df, col, limit=-1, cutoff=1, type="test"):
             Only edges with a value of the specified cutoff are drawn.
             Text files with the weighting matrix and distribution are saved.
     '''
+    processed_data = []
+
     if limit > 0:
         weighting_csv_path = Path(processing_root, "weighting_" + type + "_" + str(limit) + ".csv")
     else:
         weighting_csv_path = Path(processing_root, "weighting_" + type + ".csv")
 
-    print(weighting_csv_path)
+    #print(weighting_csv_path)
 
     if weighting_csv_path.exists():
         nodes_and_edges = load_graph_data(weighting_csv_path, cutoff=cutoff)
     else:
-        nodes_and_edges = generate_graph_data(processing_root, df, col, limit, cutoff, type)
+        nodes_and_edges, processed_data = generate_graph_data(df, col, limit, cutoff)
             
     dg.draw_weighted_graph(nodes_and_edges)        
     
     #print(num_of_refs_distribution)
-    #print(weighting_distribution)
-    
+    #print(weighting_distribution)    
     #components = list(nx.connected_components(G))
+
+    return processed_data
 
 def update_colloc_matrix(matrix, ref_list):   
     ''' function takes an existing matrix of coreferences and expands it with a list of refernces from the same source. The expanded matrix is returned '''
@@ -268,14 +276,19 @@ def get_distribution(df, key):
     else:
         sorted_values = df.sort_values(['file', 'data'], ascending=False)     
 
-    print("key:" + key)
+    #print("key:" + key)
 
-    list_of_values_by_file = sorted_values.groupby([key, 'file'], sort=False)
+    #print(sorted_values.head(100))
+
+    freq_of_values_by_file = sorted_values.groupby([key, 'file'], sort=False).size().reset_index(name='size').sort_values(['size'], ascending=False)
     
     #.sort_values(by='Count', ascending=False)  #.reset_index(['count']).sort_values(['count'], ascending=False)
-    
-    print(list_of_values_by_file)
-    return "Function ran"  #list_of_values_by_file.groupby([key], sort=False).count().sort_values(by='count', ascending=False)      
+
+    value_frequency_across_files = freq_of_values_by_file.groupby([key], sort=False).size().reset_index(name='freq').sort_values(by='freq', ascending=False) 
+
+    return value_frequency_across_files  #list_of_values_by_file.groupby([key], sort=False).count().sort_values(by='count', ascending=False)      
+
+# Helper functions
 
 def get_root_href(href):
     ''' Function returns the base document information if section information it exists in the URL '''
@@ -292,7 +305,9 @@ def get_section(href):
         return "/section" + href.split("/section")[1]
     else:
         return ""
-     
+
+# Analysis
+
 def legislation_refs(processing_root, legislation_df):
     ''' Function takes a dataframe of legislation references and analyses them '''
 
@@ -325,13 +340,18 @@ def case_refs (processing_root, cases_df):
     #print(list_of_cases.head(10))
     #list_of_cases.to_csv("data/cases.csv")
 
-def process_refs (processing_root, df, columns, limit=100, cutoff=2):
+def process_refs (processing_root, df, columns, limit=100, cutoff=2, type="test"):
 
     refs = df[columns]
-    create_graph(processing_root, refs, columns[-1], limit, cutoff, "test")
+    graph_data = create_graph(processing_root, refs, columns[-1], limit, cutoff, type)
+
+    if len(graph_data) > 0:
+        save_graph_data(processing_root, graph_data, limit, type)
 
     list_of_refs = get_distribution(df, columns[-1])
     print(list_of_refs)
+
+# Main
 
 def main(processing_root, pickle_file, folders, case=True, leg=True):    
     #start_time = time.time()
