@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 #import numpy as np
 import networkx as nx
 from mpl_interactions import ioff, panhandler, zoom_factory
-import time
+import time, math
 from datetime import datetime, timedelta
 
 def draw_bar_graph(data, x_label="", y_label=""):
@@ -27,7 +27,7 @@ def draw_bar_graph(data, x_label="", y_label=""):
 
     ax.set_ylabel(y_label)
     ax.set_xlabel(x_label)
-    ax.set(xlim=(0, len(x)), ylim=(0, max(y)+ 10))
+    ax.set(xlim=(0, len(x)), ylim=(0, max(y) + (math.ceil((max(y) / 100) * 10))))
 
     disconnect_zoom = zoom_factory(ax)
     pan_handler = panhandler(fig)
@@ -78,11 +78,13 @@ weighting_dist_reduced = {8: 956, 9: 834, 10: 654, 11: 512, 12: 458, 13: 408, 14
 
 num_of_refs_dist = {1: 17705, 2: 10958, 3: 6181, 4: 3613, 5: 2087, 6: 1288, 7: 702, 8: 483, 9: 316, 10: 198, 11: 113, 12: 106, 13: 61, 14: 37, 15: 36, 16: 15, 17: 12, 18: 9, 19: 6, 21: 2, 22: 2, 24: 2, 27: 1, 29: 1, 43: 1, 51: 1}
 
-'''
-draw_graph(weighting_dist_all, "Number of Collocations", "Number of Cases")
 
-draw_graph(weighting_dist_reduced, "Number of Collocations", "Number of Cases")
+if __name__ == '__main__':
+    '''
+    draw_graph(weighting_dist_all, "Number of Collocations", "Number of Cases")
 
-draw_graph(num_of_refs_dist, "Number of References", "Number of Cases")
+    draw_graph(weighting_dist_reduced, "Number of Collocations", "Number of Cases")
+    '''
+    draw_bar_graph(num_of_refs_dist, "Number of References", "Number of Cases")
 
-plt.show()'''
+    plt.show()

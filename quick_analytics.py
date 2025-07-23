@@ -21,7 +21,6 @@ case_refs (cases_df)
 '''
 
 '''
-[To Do] - refactor the create_graph so the processing of the data into the nodes and edges dictionary is separated out and reading from the csv/txt outputs from previous analysis.
 [To Do] - Co-reference distribution analysis
 [To Do] - cluster analysis
 '''
@@ -47,23 +46,23 @@ def input_from_values_files(processing_root, pass_num = ""):
             
     return(parts_dict, head_text_dict, body_text_dict)
 
-
-def analyse_refs(processing_root, pkl_file, columns=[], case=True, leg=True):   
+def analyse_refs(processing_root, pkl_file, columns=[], limit=100, cutoff=0, renew_data=False):   
     ''' Function reads the pickle file and runs the functions of the specified types
     '''  
     references_df = pd.read_pickle(pkl_file)
 
-    if len(columns) > 0:
-        process_refs(processing_root, references_df, columns, cutoff=0)
+    if 'uk:type' in references_df.columns:  
+        cases_df = references_df[references_df['uk:type'] == "case"]
+        case_refs(processing_root, cases_df, limit=limit, cutoff=cutoff, renew_data=renew_data)
+        
+        #legislation_df = references_df[references_df['uk:type'] == "legislation"] 
+        #legislation_refs(processing_root, legislation_df, limit=limit, cutoff=cutoff, renew_data=renew_data)
 
-    if 'uk:type' in references_df.columns:    
-        if case:
-            cases_df = references_df[references_df['uk:type'] == "case"]
-            case_refs(processing_root, cases_df)
-            
-        if leg:
-            legislation_df = references_df[references_df['uk:type'] == "legislation"] 
-            legislation_refs(processing_root, legislation_df)
+    elif len(columns) > 0:
+        process_refs(processing_root, references_df, columns, limit=limit, cutoff=cutoff, renew_data=renew_data)
+
+    else:
+        print("Not enough information to analyse data")
 
 
 def generate_blank_matrix(index_names):
@@ -72,7 +71,7 @@ def generate_blank_matrix(index_names):
 
     values = {}
     
-    print(len(index_names))
+    #print("Length of index" + str(len(index_names)))
     
     for name in index_names:
         if ".gov.uk/" in name:
@@ -88,6 +87,10 @@ def generate_blank_matrix(index_names):
     return (values, index)
 
 def load_graph_data(weighting_csv_path, cutoff = 1):
+    before_loading = time.time()
+
+    print("Load graph data called")
+
     nodes_and_edges = []
     #print("Loading graph data")
 
@@ -107,17 +110,22 @@ def load_graph_data(weighting_csv_path, cutoff = 1):
                     nodes_and_edges.append({"node1":node1, "node2":node2, "weighted_value": int(weighted_value)})
 
     #print(nodes_and_edges)
+
+    dg.output_duration(before_loading, "Loading")  
+
     return nodes_and_edges
 
 def generate_graph_data(df, col, limit=-1, cutoff=1):
     before_processing = time.time()
     
+    print("Generate graph data called")
+
     #print(df)
 
     file_list = df['file'].astype(str).unique()
     weighting = {}
     
-    print("Number of files" + str(len(file_list)))
+    print("Number of files " + str(len(file_list)))
     
     linked_refs_lists = []    
     num_of_refs_distribution = {}
@@ -191,7 +199,6 @@ def generate_graph_data(df, col, limit=-1, cutoff=1):
 
     return (nodes_and_edges, processed_data)
 
-
 def save_graph_data(processing_root, processed_data, limit=0, type="test"):  
     weighting_df = processed_data[0]
     weighting_distribution = processed_data[1]
@@ -215,9 +222,7 @@ def save_graph_data(processing_root, processed_data, limit=0, type="test"):
     except IOError as e:
         print("Could not save file: " + str(e)) 
 
-
-
-def create_graph(processing_root, df, col, limit=-1, cutoff=1, type="test"):
+def create_graph(processing_root, df, col, limit=-1, cutoff=1, type="test", renew_data=False):
     ''' Creates a weighted network graph based on a named column (col) in the dataframe (df). 
             If an optional limit is given then it only draws that number of rows otherwise it does all the rows. 
             Only edges with a value of the specified cutoff are drawn.
@@ -232,7 +237,7 @@ def create_graph(processing_root, df, col, limit=-1, cutoff=1, type="test"):
 
     #print(weighting_csv_path)
 
-    if weighting_csv_path.exists():
+    if weighting_csv_path.exists() and renew_data == False:
         nodes_and_edges = load_graph_data(weighting_csv_path, cutoff=cutoff)
     else:
         nodes_and_edges, processed_data = generate_graph_data(df, col, limit, cutoff)
@@ -268,8 +273,8 @@ def update_colloc_matrix(matrix, ref_list):
                     
     return matrix
                
-def get_distribution(df, key):
-    ''' For a given dataframe, the function groups the values by the specified column (key) and by file. Returns list with count of each key value '''
+def get_frequency(df, key):
+    ''' For a given dataframe, the function groups the values by the specified column (key) and by file. Returns dictionary with count for each key value '''
     
     if 'pass' in df.columns:
         sorted_values = df.sort_values(['file', 'pass'], ascending=False)   
@@ -281,12 +286,14 @@ def get_distribution(df, key):
     #print(sorted_values.head(100))
 
     freq_of_values_by_file = sorted_values.groupby([key, 'file'], sort=False).size().reset_index(name='size').sort_values(['size'], ascending=False)
-    
-    #.sort_values(by='Count', ascending=False)  #.reset_index(['count']).sort_values(['count'], ascending=False)
 
     value_frequency_across_files = freq_of_values_by_file.groupby([key], sort=False).size().reset_index(name='freq').sort_values(by='freq', ascending=False) 
+    #print(value_frequency_across_files)
 
-    return value_frequency_across_files  #list_of_values_by_file.groupby([key], sort=False).count().sort_values(by='count', ascending=False)      
+    keys = value_frequency_across_files[key].tolist()
+    values = value_frequency_across_files['freq'].tolist()
+
+    return dict(zip(keys, values)) 
 
 # Helper functions
 
@@ -308,9 +315,10 @@ def get_section(href):
 
 # Analysis
 
-def legislation_refs(processing_root, legislation_df):
+def legislation_refs(processing_root, legislation_df, limit=100, cutoff=5, renew_data=False):
     ''' Function takes a dataframe of legislation references and analyses them '''
 
+    print("Legislation refs called")
     # Legislation
         # Which legislation and how often
     
@@ -319,55 +327,68 @@ def legislation_refs(processing_root, legislation_df):
     
     #print(legislation_df.head(10))
     leg_refs = legislation_df[['file', 'href']]
-    create_graph(processing_root, leg_refs, 'href', limit=100, cutoff=5)
+    create_graph(processing_root, leg_refs, 'href', limit, cutoff, "legislation", renew_data)
         
-    #list_of_leg = get_distribution(legislation_df, 'href')
+    list_of_leg = get_frequency(legislation_df, 'href')
+    dg.draw_bar_graph(list_of_leg) 
+
     #print(list_of_leg.head(10))
     #list_of_leg.to_csv("data/legislation.csv")
         # Specific reference - what and how often
         # Clustering      
    
-def case_refs (processing_root, cases_df):  
+def case_refs (processing_root, cases_df, limit=100, cutoff=2, renew_data=False):  
     ''' Function takes a dataframe of case references and analyses them ''' 
     # Case Law
         # Which cases and how often  
     #print(cases_df.head(10))
-    #list_of_cases = get_distribution(cases_df, 'uk:canonical')
+
+    print("Case refs called")
+
+    list_of_cases = get_frequency(cases_df, 'uk:canonical')
+    dg.draw_bar_graph(list_of_cases) 
     
     case_refs = cases_df[['file', 'href', 'uk:canonical']]
-    create_graph(processing_root, case_refs, 'uk:canonical', cutoff=2, type="case")
+    create_graph(processing_root, case_refs, 'uk:canonical', limit, cutoff, "case", renew_data)
     
     #print(list_of_cases.head(10))
     #list_of_cases.to_csv("data/cases.csv")
 
-def process_refs (processing_root, df, columns, limit=100, cutoff=2, type="test"):
+def process_refs (processing_root, df, columns, limit=100, cutoff=2, type="test", renew_data=False):
+    ''' Runs analysis on general dataframe of data. 
+    '''
 
     refs = df[columns]
-    graph_data = create_graph(processing_root, refs, columns[-1], limit, cutoff, type)
+
+    graph_data = create_graph(processing_root, refs, columns[-1], limit, cutoff, type, renew_data)
 
     if len(graph_data) > 0:
         save_graph_data(processing_root, graph_data, limit, type)
 
-    list_of_refs = get_distribution(df, columns[-1])
-    print(list_of_refs)
+    refs_frequency = get_frequency(df, columns[-1])
+    dg.draw_bar_graph(refs_frequency)  
+
+    #print(list_of_refs)
 
 # Main
 
-def main(processing_root, pickle_file, folders, case=True, leg=True):    
+#def main(processing_root, pickle_file, folders, case=True, leg=True, renew_data=False):    
     #start_time = time.time()
     #dg.output_duration(start_time, "Loading")
-    analyse_refs(processing_root, pickle_file, folders, case, leg)
+    #analyse_refs(processing_root, pickle_file, folders, case, leg, renew_data)
 
 
 if __name__ == '__main__':
     processing_root = "data"
-    refs_pkl_file = Path(processing_root, "processing", "cache", "extracted_data_full", "ref.pkl")
 
+    refs_pkl_file = Path(processing_root, "processing", "cache", "extracted_data", "ref.pkl")
     test_pkl_file = Path(processing_root, "processing", "test", "cache", "extracted_data", "ref.pkl")
 
     folders = ['file', 'href']
 
-    main(processing_root, test_pkl_file, folders, True, False)
+    #analyse_refs(processing_root, test_pkl_file, folders, renew_data=False)
+    analyse_refs(processing_root, refs_pkl_file, limit=100, cutoff=0, renew_data=False)
+
 
 
 
