@@ -61,7 +61,7 @@ def process_parts(folder, filename, parts):
             print("Can't split line in "  + filename + ": " + part + ": " + str(e))
             break
             
-        part_dict = {"data":folder, "file": filename, "element": element.strip(), 'text':text.strip()}
+        part_dict = {"data":folder, "file": filename, "element": element.strip().tolower(), 'text':text.strip()}
         
         if '||' in attributes:
             attribute_list = attributes.split("||")
@@ -70,7 +70,7 @@ def process_parts(folder, filename, parts):
             for attribute in attribute_list:
                 try:
                     attr, value = attribute.split("=", 1)
-                    part_dict.update({attr.strip(): value.strip()})
+                    part_dict.update({attr.strip().tolower(): value.strip()})
                 except ValueError as e:
                     print("Error in data: " + folder + ", file: " + filename + ", attribute: " + attribute + " - " + str(e))
         
