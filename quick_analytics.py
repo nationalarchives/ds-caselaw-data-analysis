@@ -1,9 +1,9 @@
 from pathlib import Path
 import pandas as pd
-import matplotlib.pyplot as plt
-import networkx as nx
-import numpy as np
-import time
+#import matplotlib.pyplot as plt
+#import networkx as nx
+#import numpy as np
+import time, re
 import dist_graphs as dg
 
 '''
@@ -228,6 +228,7 @@ def create_graph(processing_root, df, col, limit=-1, cutoff=1, type="test", rene
             Only edges with a value of the specified cutoff are drawn.
             Text files with the weighting matrix and distribution are saved.
     '''
+    before_create_graph = time.time()
     processed_data = []
 
     if limit > 0:
@@ -247,6 +248,7 @@ def create_graph(processing_root, df, col, limit=-1, cutoff=1, type="test", rene
     #print(num_of_refs_distribution)
     #print(weighting_distribution)    
     #components = list(nx.connected_components(G))
+    dg.output_duration(before_create_graph, "Create graph") 
 
     return processed_data
 
@@ -276,6 +278,8 @@ def update_colloc_matrix(matrix, ref_list):
 def get_frequency(df, key):
     ''' For a given dataframe, the function groups the values by the specified column (key) and by file. Returns dictionary with count for each key value '''
     
+    print("Get frequency called")
+
     if 'pass' in df.columns:
         sorted_values = df.sort_values(['file', 'pass'], ascending=False)   
     else:
@@ -288,7 +292,7 @@ def get_frequency(df, key):
     freq_of_values_by_file = sorted_values.groupby([key, 'file'], sort=False).size().reset_index(name='size').sort_values(['size'], ascending=False)
 
     value_frequency_across_files = freq_of_values_by_file.groupby([key], sort=False).size().reset_index(name='freq').sort_values(by='freq', ascending=False) 
-    #print(value_frequency_across_files)
+    print(value_frequency_across_files)
 
     keys = value_frequency_across_files[key].tolist()
     values = value_frequency_across_files['freq'].tolist()
@@ -341,15 +345,40 @@ def case_refs (processing_root, cases_df, limit=100, cutoff=2, renew_data=False)
     ''' Function takes a dataframe of case references and analyses them ''' 
     # Case Law
         # Which cases and how often  
-    #print(cases_df.head(10))
+
+    cases_df = cases_df.dropna(axis=1, how='all')    
+    print(cases_df.head(10))
 
     print("Case refs called")
 
+    print(cases_df.columns)
+
+    index_list_of_blanks = cases_df[cases_df['uk:canonical'] == ''].index
+
+    #cases_df.loc[cases_df.index[index_list_of_blanks]]
+
+    print(cases_df[cases_df.index.isin(index_list_of_blanks)])
+
     list_of_cases = get_frequency(cases_df, 'uk:canonical')
-    dg.draw_bar_graph(list_of_cases) 
+    #print(list_of_cases)
+
+    if limit > 0:
+        case_freq_path = Path(processing_root, "case_ref_freq_" + str(limit) + ".txt")     
+    else:
+        case_freq_path = Path(processing_root, "case_ref_freq.txt")  
+
+    try:
+        with open(case_freq_path, "w", encoding="utf-8") as myfile:
+            for key in list_of_cases:
+                myfile.write(str(key) + ", " + str(list_of_cases[key]) + "\n")
+    except IOError as e:
+        print("Could not save file: " + str(e)) 
+
+
+    #dg.draw_bar_graph(list_of_cases) 
     
     case_refs = cases_df[['file', 'href', 'uk:canonical']]
-    create_graph(processing_root, case_refs, 'uk:canonical', limit, cutoff, "case", renew_data)
+    #create_graph(processing_root, case_refs, 'uk:canonical', limit, cutoff, "case", renew_data)
     
     #print(list_of_cases.head(10))
     #list_of_cases.to_csv("data/cases.csv")
@@ -370,6 +399,27 @@ def process_refs (processing_root, df, columns, limit=100, cutoff=2, type="test"
 
     #print(list_of_refs)
 
+def quick_fix(processing_root, pkl_file):
+    references_df = pd.read_pickle(pkl_file)
+    
+    column_names = references_df.columns.tolist()
+
+    print(references_df.columns)
+    
+    column_names_lower = [name.lower() for name in column_names]
+
+    name_set = set(column_names_lower)
+
+    if len(column_names) != len(name_set):
+        for core_name in list(name_set):
+            matching_cols = [column_name for column_name in column_names if re.match(core_name, column_name, re.IGNORECASE)]
+            if len(matching_cols) > 1:
+                print("Matching columns:" + str(matching_cols))
+                for i in range(1, len(matching_cols)):
+                    references_df[matching_cols[0]].update(matching_cols[i])
+
+        print(references_df.columns)
+
 # Main
 
 #def main(processing_root, pickle_file, folders, case=True, leg=True, renew_data=False):    
@@ -381,13 +431,17 @@ def process_refs (processing_root, df, columns, limit=100, cutoff=2, type="test"
 if __name__ == '__main__':
     processing_root = "data"
 
-    refs_pkl_file = Path(processing_root, "processing", "cache", "extracted_data", "ref.pkl")
+    refs_test_pkl_file = Path(processing_root, "processing", "cache", "extracted_data", "ref.pkl")
+    refs_pkl_file = Path(processing_root, "processing", "cache", "extracted_data_full", "ref.pkl")
     test_pkl_file = Path(processing_root, "processing", "test", "cache", "extracted_data", "ref.pkl")
 
     folders = ['file', 'href']
 
     #analyse_refs(processing_root, test_pkl_file, folders, renew_data=False)
-    analyse_refs(processing_root, refs_pkl_file, limit=100, cutoff=0, renew_data=False)
+    #analyse_refs(processing_root, refs_pkl_file, limit=100, cutoff=0, renew_data=False)
+
+    quick_fix(processing_root, refs_pkl_file)
+
 
 
 
