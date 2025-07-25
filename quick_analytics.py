@@ -403,8 +403,16 @@ def quick_fix(processing_root, pkl_file):
     references_df = pd.read_pickle(pkl_file)
     
     column_names = references_df.columns.tolist()
+    print(column_names)
 
-    print(references_df.columns)
+    cases_df = references_df[references_df['uk:type'] == "case"].dropna(axis=1, how='all')
+    print("Cases columns: " + str(cases_df.columns.tolist()))
+    cases_df.to_csv(Path(processing_root, "cases_references_orig.csv"))
+
+    legislation_df = references_df[references_df['uk:type'] == "legislation"].dropna(axis=1, how='all')
+    print("Leg columns: " + str(legislation_df.columns.tolist()))
+    legislation_df.to_csv(Path(processing_root, "leg_references_orig.csv"))
+    
     
     column_names_lower = [name.lower() for name in column_names]
 
@@ -416,9 +424,15 @@ def quick_fix(processing_root, pkl_file):
             if len(matching_cols) > 1:
                 print("Matching columns:" + str(matching_cols))
                 for i in range(1, len(matching_cols)):
-                    references_df[matching_cols[0]].update(matching_cols[i])
+                    references_df[matching_cols[0]].fillna(matching_cols[i])
 
-        print(references_df.columns)
+        #print(cases_df.columns)
+
+    cases_df = references_df[references_df['uk:type'] == "case"].dropna(axis=1, how='all')
+    cases_df.to_csv(Path(processing_root, "cases_references_transformed.csv"))
+
+    legislation_df = references_df[references_df['uk:type'] == "legislation"].dropna(axis=1, how='all')
+    legislation_df.to_csv(Path(processing_root, "leg_references_transformed.csv"))
 
 # Main
 
