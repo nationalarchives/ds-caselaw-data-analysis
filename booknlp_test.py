@@ -53,3 +53,9 @@ else:
     model_params = process_model_files(model_params, device)
 	
 booknlp=BookNLP("en", model_params)
+
+input_file = "C:/Users/flawrence/Documents/Projects/FCL/Research Area/ds-caselaw-data-analysis/data/processing/test-data/eat-2022-1_body.txt"
+output_dir = "C:/Users/flawrence/Documents/Projects/FCL/Research Area/booknlp/output"
+judgement_id = "eat-2022-1"
+
+booknlp.process(input_file, output_dir, judgement_id)
