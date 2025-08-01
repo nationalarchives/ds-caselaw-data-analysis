@@ -54,8 +54,11 @@ else:
 	
 booknlp=BookNLP("en", model_params)
 
-input_file = "C:/Users/flawrence/Documents/Projects/FCL/Research Area/ds-caselaw-data-analysis/data/processing/test-data/eat-2022-1_body.txt"
-output_dir = "C:/Users/flawrence/Documents/Projects/FCL/Research Area/booknlp/output"
-judgement_id = "eat-2022-1"
 
-booknlp.process(input_file, output_dir, judgement_id)
+
+input_folder = "C:/Users/flawrence/Documents/Projects/FCL/Research Area/ds-caselaw-data-analysis/data/processing/test-data"
+output_dir = "C:/Users/flawrence/Documents/Projects/FCL/Research Area/booknlp/output"
+
+for file in Path(input_folder).glob("*_body.txt"):  
+    judgement_id = Path(file).stem
+    booknlp.process(file, output_dir, judgement_id)
