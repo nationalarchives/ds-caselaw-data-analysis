@@ -64,10 +64,13 @@ def get_events(data_folder, regen=False):
     for file, df in dataframes.items():
         if Path(data_root, file + "_events.csv").exists() and regen == False:
             processed_data = pd.read_csv(Path(data_root, file + "_events.csv"))
-            processed_data['complex'] = False
-            print(processed_data)
-            possible_events = processed_data.to_dict()
-            print(possible_events)
+            #print(processed_data)
+            loaded_events = processed_data.to_dict()
+            possible_events = []
+            for i in range(0, len(loaded_events['line_num'])):
+                possible_events.append({"line_num": loaded_events['line_num'][i], "dates": [(loaded_events['date_text'][i], loaded_events['date'][i])], "line": loaded_events['line'][i], "complex": False})
+
+            #print(possible_events)
             events_by_file[file] = possible_events
         else:
             possible_events = []
@@ -125,5 +128,5 @@ if __name__ == '__main__':
 
         event_values = {"dates": events_df['date'].to_list(), "labels": events_df['line'].to_list()}
 
-        #dg.draw_timeline(event_values)
+        dg.draw_timeline(event_values)
     
