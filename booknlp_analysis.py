@@ -2,6 +2,7 @@ from pathlib import Path
 import pandas as pd
 from dateparser.search import search_dates
 import dist_graphs as dg
+from datetime import datetime
 
 def clean_files(data_folder):
 
@@ -68,7 +69,7 @@ def get_events(data_folder, regen=False):
             loaded_events = processed_data.to_dict()
             possible_events = []
             for i in range(0, len(loaded_events['line_num'])):
-                possible_events.append({"line_num": loaded_events['line_num'][i], "dates": [(loaded_events['date_text'][i], loaded_events['date'][i])], "line": loaded_events['line'][i], "complex": False})
+                possible_events.append({"line_num": loaded_events['line_num'][i], "dates": [(loaded_events['date_text'][i], datetime.strptime(loaded_events['date'][i], "%d/%m/%Y"))], "line": loaded_events['line'][i], "complex": False})
 
             #print(possible_events)
             events_by_file[file] = possible_events
@@ -121,7 +122,7 @@ if __name__ == '__main__':
         events_df = pd.DataFrame.from_dict(simple_events)
         #print(events_df)
 
-        print(events_df.info())
+        #print(events_df.info())
 
         events_df = events_df.sort_values(by=['date'])
         events_df.to_csv(Path(data_root, filename + "_events.csv"), index=False)
