@@ -1,9 +1,9 @@
 import matplotlib.pyplot as plt
-#import numpy as np
+import numpy as np
 import networkx as nx
 from mpl_interactions import ioff, panhandler, zoom_factory
 import time, math
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 def draw_bar_graph(data, x_label="", y_label=""):
     plt.style.use('_mpl-gallery')
@@ -62,6 +62,49 @@ def draw_weighted_graph(data):
     plt.tight_layout()
     output_duration(before_graph, "Graphing")
     plt.show()    
+
+
+def draw_timeline(data):
+    # Code drawn from https://dadoverflow.com/2021/08/17/making-timelines-with-python/
+
+    dates = data["dates"]
+    labels = data["labels"]
+
+    min_date = date(np.min(dates).year - 2, np.min(dates).month, np.min(dates).day)
+    max_date = date(np.max(dates).year + 2, np.max(dates).month, np.max(dates).day)
+
+    labels = ['{0:%d %b %Y}:\n{1}'.format(d, l) for l, d in zip (labels, dates)]
+
+    fig, ax = plt.subplots(figsize=(15, 4), constrained_layout=True)
+    ax.set_ylim(-2, 1.75)
+    ax.set_xlim(min_date, max_date)
+    ax.axhline(0, xmin=0.05, xmax=0.95, c='deeppink', zorder=1)   
+    ax.scatter(dates, np.zeros(len(dates)), s=120, c='palevioletred', zorder=2)
+    ax.scatter(dates, np.zeros(len(dates)), s=30, c='darkmagenta', zorder=3)
+
+    label_offsets = np.zeros(len(dates))
+    label_offsets[::2] = 0.35
+    label_offsets[1::2] = -0.7
+    for i, (l, d) in enumerate(zip(labels, dates)):
+        ax.text(d, label_offsets[i], l, ha='center', fontfamily='serif', fontweight='bold', color='royalblue',fontsize=12)
+
+    stems = np.zeros(len(dates))
+    stems[::2] = 0.3
+    stems[1::2] = -0.3   
+    markerline, stemline, baseline = ax.stem(dates, stems)
+    plt.setp(markerline, marker=',', color='darkmagenta')
+    plt.setp(stemline, color='darkmagenta')
+
+    # hide lines around chart
+    for spine in ["left", "top", "right", "bottom"]:
+        ax.spines[spine].set_visible(False)
+    
+    # hide tick labels
+    ax.set_xticks([])
+    ax.set_yticks([])
+    
+    ax.set_title('', fontweight="bold", fontfamily='serif', fontsize=16, color='royalblue')
+    plt.show()
 
 
 def output_duration(start_time, action):

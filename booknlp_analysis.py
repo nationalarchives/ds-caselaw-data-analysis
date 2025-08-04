@@ -1,6 +1,7 @@
 from pathlib import Path
 import pandas as pd
 from dateparser.search import search_dates
+import dist_graphs as dg
 
 def clean_files(data_folder):
 
@@ -42,43 +43,58 @@ def include_dates(possible_dates):
 
 def get_events(data_folder, regen=False):
     dataframes = {}
-    possible_events = {}
     events_by_file = {}
 
     for file in data_folder.glob("*.tokens"):  
         filename = Path(file).stem
+
         if (Path(data_folder, filename+".pkl").exists() and regen == False):
+            print("Loading values from pkl")
             df = pd.read_pickle(Path(data_folder, filename+".pkl"))
             dataframes[filename] = df
+            #print(df.info())
         else:
-            print("Print reading values from TSV")
+            print("Reading values from TSV")
             clean_file(file)
             df = pd.read_csv(file, delimiter="\t")             
             dataframes[filename] = df
+            #print(df.info())
             df.to_pickle(Path(data_folder, filename+".pkl"))
 
     for file, df in dataframes.items():
-        events = df[~df['event'].isnull()]
-        found_events = events.loc[df["event"] == "EVENT"]
-        #event_words = set(found_events.word.tolist())
-        #print(event_words)
-        sentences = list(set(found_events.sentence_ID.tolist()))
-        sentences.sort()
+        if Path(data_root, file + "_events.csv").exists() and regen == False:
+            processed_data = pd.read_csv(Path(data_root, file + "_events.csv"))
+            processed_data['complex'] = False
+            print(processed_data)
+            possible_events = processed_data.to_dict()
+            print(possible_events)
+            events_by_file[file] = possible_events
+        else:
+            possible_events = []
+            #print("For " + file)
+            events = df[~df['event'].isnull()]
+            found_events = events.loc[df["event"] == "EVENT"]
+            #event_words = set(found_events.word.tolist())
+            #print(event_words)
+            sentences = list(set(found_events.sentence_ID.tolist()))
+            sentences.sort()
 
-        for event_sentence in sentences:
-            event = df[df["sentence_ID"] == int(event_sentence)]
-            words = event.word.tolist()
-            resentence = " ".join(words)
-            dates = search_dates(resentence)
+            for event_sentence in sentences:
+                event = df[df["sentence_ID"] == int(event_sentence)]
+                words = event.word.tolist()
+                resentence = " ".join(words)
+                dates = search_dates(resentence)
 
-            if dates:
-                filtered_dates = include_dates(dates)
-                if len(filtered_dates) > 1:
-                    possible_events[event_sentence] = {"dates": filtered_dates, "line": resentence, "complex": True}
-                elif len(filtered_dates) > 0:
-                    possible_events[event_sentence] = {"dates": filtered_dates, "line": resentence, "complex": False}
+                if dates:
+                    filtered_dates = include_dates(dates)
+                    if len(filtered_dates) > 1:
+                        possible_events.append({"line_num": event_sentence, "dates": filtered_dates, "line": resentence, "complex": True})
+                    elif len(filtered_dates) > 0:
+                        possible_events.append({"line_num": event_sentence, "dates": filtered_dates, "line": resentence, "complex": False})
 
-        events_by_file[file] = possible_events
+            events_by_file[file] = possible_events
+        #print(len(events_by_file[file]))
+        #print(events_by_file[file][0])
 
     return (events_by_file)
 
@@ -86,8 +102,28 @@ def get_events(data_folder, regen=False):
 if __name__ == '__main__':
     data_root = Path("..", "booknlp", "output")
     #clean_files(data_root)
+
     events = get_events(data_root)
 
     for filename, events_for_file in events.items():
-        with open(Path(data_root, filename + "_events.txt"), "w", encoding='utf-8') as new_file:
-            new_file.write(str(events_for_file))
+        #with open(Path(data_root, filename + "_events.txt"), "w", encoding='utf-8') as txt_file:
+        #    txt_file.write(str(events_for_file))
+
+        #print(events_for_file[0])
+        #print(filename + ": num of dated Events:" + str(len(events_for_file)))
+        simple_events = [event for event in events_for_file if event['complex'] == False]
+        simple_events = [{"line_num": event['line_num'], "date_text": event['dates'][0][0], "date": event['dates'][0][1], "line": event['line'].strip()} for event in simple_events]
+        #print(simple_events)
+        #print(filename + ": num of Simple Events:" + str(len(simple_events)))
+        events_df = pd.DataFrame.from_dict(simple_events)
+        #print(events_df)
+
+        print(events_df.info())
+
+        events_df = events_df.sort_values(by=['date'])
+        events_df.to_csv(Path(data_root, filename + "_events.csv"), index=False)
+
+        event_values = {"dates": events_df['date'].to_list(), "labels": events_df['line'].to_list()}
+
+        #dg.draw_timeline(event_values)
+    
