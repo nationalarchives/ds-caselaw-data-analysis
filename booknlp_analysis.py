@@ -3,6 +3,8 @@ import pandas as pd
 from dateparser.search import search_dates
 import dist_graphs as dg
 from datetime import datetime
+import jenkspy
+from findpeaks import findpeaks
 
 def clean_files(data_folder):
 
@@ -48,6 +50,7 @@ def get_events(data_folder, regen=False):
 
     for file in data_folder.glob("*.tokens"):  
         filename = Path(file).stem
+        print("Processing " + filename)
 
         if (Path(data_folder, filename+".pkl").exists() and regen == False):
             print("Loading values from pkl")
@@ -64,16 +67,18 @@ def get_events(data_folder, regen=False):
 
     for file, df in dataframes.items():
         if Path(data_root, file + "_events.csv").exists() and regen == False:
+            print("Loading existing timeline values from CSV")
             processed_data = pd.read_csv(Path(data_root, file + "_events.csv"))
             #print(processed_data)
             loaded_events = processed_data.to_dict()
             possible_events = []
             for i in range(0, len(loaded_events['line_num'])):
-                possible_events.append({"line_num": loaded_events['line_num'][i], "dates": [(loaded_events['date_text'][i], datetime.strptime(loaded_events['date'][i], "%d/%m/%Y"))], "line": loaded_events['line'][i], "complex": False})
+                possible_events.append({"line_num": loaded_events['line_num'][i], "dates": [(loaded_events['date_text'][i], datetime.strptime(loaded_events['date'][i], "%Y-%m-%d"))], "line": loaded_events['line'][i], "complex": False})
 
             #print(possible_events)
             events_by_file[file] = possible_events
         else:
+            print("Generating timeline")
             possible_events = []
             #print("For " + file)
             events = df[~df['event'].isnull()]
@@ -102,6 +107,51 @@ def get_events(data_folder, regen=False):
 
     return (events_by_file)
 
+def date_cluster_analysis(timeline_path, filename):
+    timeline = pd.read_csv(timeline_path)
+    date_strings = timeline['date'].to_list()
+    timeline['date'] = pd.to_datetime(timeline['date'])
+    dates = timeline['date'].to_list()
+    dates_no_dups = list(set(dates)) 
+    dates_no_dups.sort()
+
+    #print(dates_no_dups)
+
+    gaps = []
+    gap_positions = {}
+
+
+    for i in range(0, len(dates_no_dups)):
+        if i+1 < len(dates_no_dups):
+            time_diff = dates_no_dups[i+1] - dates_no_dups[i]
+            gaps.append(time_diff.days)
+            gap_positions[i] = time_diff.days
+
+    gaps.sort()    
+    #print(gaps)
+    #print(gap_positions)
+
+    if len(dates_no_dups) > 1:
+        fp = findpeaks(method='topology')
+        results = fp.fit(list(gap_positions.values()))
+
+        data = results['df']    
+        #print(data)
+        #fp.plot()
+        peak_count = data[data['score'] > 0].count()['score']
+        #print(peak_count)
+
+        jnb = jenkspy.JenksNaturalBreaks(int(peak_count) + 1)
+
+        dates_as_strings = list(set(date_strings))
+        dates_as_strings.sort()
+        print(dates_as_strings)
+        jnb.fit(dates_as_strings)
+        print(jnb.group_)
+        
+
+    #dg.draw_plot_graph(gap_positions, title=filename)
+
 
 if __name__ == '__main__':
     data_root = Path("..", "booknlp", "output")
@@ -128,6 +178,7 @@ if __name__ == '__main__':
         events_df.to_csv(Path(data_root, filename + "_events.csv"), index=False)
 
         event_values = {"dates": events_df['date'].to_list(), "labels": events_df['line'].to_list()}
+        #dg.draw_timeline(event_values)
 
-        dg.draw_timeline(event_values)
+        date_cluster_analysis(Path(data_root, filename + "_events.csv"), filename)
     
