@@ -34,7 +34,7 @@ def draw_bar_graph(data, x_label="", y_label=""):
     #display(fig.canvas)
     plt.show()
 
-def draw_weighted_graph(data):
+def draw_weighted_graph(data, title=""):
     
     before_graph = time.time()
     
@@ -60,11 +60,12 @@ def draw_weighted_graph(data):
     ax.margins(0.08)
     plt.axis("off")
     plt.tight_layout()
+    plt.title(title)
     output_duration(before_graph, "Graphing")
     plt.show()    
 
 
-def draw_timeline(data):
+def draw_timeline(data, title=""):
     # Code drawn from https://dadoverflow.com/2021/08/17/making-timelines-with-python/
 
     dates = data["dates"]
@@ -94,6 +95,7 @@ def draw_timeline(data):
     markerline, stemline, baseline = ax.stem(dates, stems)
     plt.setp(markerline, marker=',', color='darkmagenta')
     plt.setp(stemline, color='darkmagenta')
+    plt.title(title)
 
     # hide lines around chart
     for spine in ["left", "top", "right", "bottom"]:
@@ -104,6 +106,14 @@ def draw_timeline(data):
     ax.set_yticks([])
     
     ax.set_title('', fontweight="bold", fontfamily='serif', fontsize=16, color='royalblue')
+    plt.show()
+
+def draw_plot_graph(data, x_label="", y_label="", title=""):
+    x_values = data.keys()
+    y_values = data.values()
+
+    plt.plot(x_values, y_values)
+    plt.title(title)
     plt.show()
 
 
