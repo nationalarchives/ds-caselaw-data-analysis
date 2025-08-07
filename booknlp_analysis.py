@@ -5,6 +5,8 @@ import dist_graphs as dg
 from datetime import datetime
 import jenkspy
 from findpeaks import findpeaks
+import numpy as np
+import re
 
 def clean_files(data_folder):
 
@@ -42,7 +44,6 @@ def include_dates(possible_dates):
 
     #print(dates)
     return dates
-
 
 def get_events(data_folder, regen=False):
     dataframes = {}
@@ -107,15 +108,19 @@ def get_events(data_folder, regen=False):
 
     return (events_by_file)
 
-def date_cluster_analysis(timeline_path, filename):
+def date_cluster_analysis(timeline_path, filename=""):
     timeline = pd.read_csv(timeline_path)
-    date_strings = timeline['date'].to_list()
     timeline['date'] = pd.to_datetime(timeline['date'])
+    timeline.sort_values(by=['date'], inplace=True)
+    timeline['converted_dates'] = timeline['date'].values.astype(np.int64) // 10 ** 9
+    #timeline['converted_dates'] = pd.to_numeric(timeline['converted_dates'])
+    date_numbers = timeline['converted_dates'].to_list()
     dates = timeline['date'].to_list()
     dates_no_dups = list(set(dates)) 
-    dates_no_dups.sort()
+    #dates_no_dups.sort()
 
-    #print(dates_no_dups)
+    #print("dates no dups: " + str(dates_no_dups))
+    #print("dates as numbers: " + str(date_numbers))
 
     gaps = []
     gap_positions = {}
@@ -140,17 +145,86 @@ def date_cluster_analysis(timeline_path, filename):
         #fp.plot()
         peak_count = data[data['score'] > 0].count()['score']
         #print(peak_count)
+        #dg.draw_plot_graph(gap_positions, title=filename)
 
         jnb = jenkspy.JenksNaturalBreaks(int(peak_count) + 1)
 
-        dates_as_strings = list(set(date_strings))
-        dates_as_strings.sort()
-        print(dates_as_strings)
-        jnb.fit(dates_as_strings)
-        print(jnb.group_)
-        
+        dates_as_numbers = list(set(date_numbers))
+        #print("dates: " + str(dates_as_numbers))
+        jnb.fit(dates_as_numbers)
+        groups = jnb.groups_
 
-    #dg.draw_plot_graph(gap_positions, title=filename)
+        date_groups = []
+        for group in groups:
+            date_group = [datetime.fromtimestamp(x).strftime("%Y-%m-%d") for x in group]
+            date_groups.append(date_group)
+    else:
+        date_groups = [dates_no_dups]
+        
+    #print(date_groups)
+    return(date_groups)
+    
+def cluster_text():
+    pass
+
+def niave_text_reduction(event_values):
+    date_text = event_values['date_text']
+    line = event_values['line']
+    date_text = date_text.strip()
+
+    #print(date_text)
+    #print(line)
+
+    text_sections = line.split(date_text)
+    text_sections = [x for x in text_sections if x]
+
+    start = text_sections[0].strip()
+
+    #print(text_sections)
+
+    if len(text_sections) > 1:
+        end = text_sections[1].strip()
+        date_text = date_text.lower()
+
+        if len(end) < 2 or end[0] == "," or end[0] == ".":
+            #print("shorten 1: " + start)
+            return start
+        elif start[-1] == "," or start[-1] == ".":
+            #print("shorten 2: " + end)
+            return end
+        elif 'on ' in date_text or start[-2:].lower() == 'on':
+            #print("shorten 3: " + start)
+            return start
+        elif 'the' in date_text or start[-3:].lower() == 'the':
+            #print("shorten 4: " + end)
+            return end
+        elif start[-5:].lower() == 'dated':
+            #print("shorten 5: " + start)
+            return start
+        elif re.search(r'\(\s*\w\s*\)', start) or re.search(r'\(\s*\w\s*\)', end):
+            short_start = start
+            short_end = end
+            if re.search(r'\(\s*\w\s*\)([\w\s,]*)$', start):
+                short_start = re.search(r'\(\s*\w\s*\)([\w\s]*)$', start).group(1)
+
+            if re.search(r'^([\w\s;,]*)\(\s*\w\s*\)', end):
+                short_end = re.search(r'^([\w\s;,]*)\(\s*\w\s*\)', end).group(1)
+
+            #print("shorten 6: " + short_start + " " + short_end)
+            return short_start + " " + short_end   
+        else:
+            short_start = start
+            short_end = end
+
+            short_start = re.search(r'[^\w\s]\s*([\w\s]*)$', start).group(1)
+            short_end = re.search(r'^([\w\s]*)[^\w\s]', end).group(1)
+
+            #print("shorten 7: " + short_start + " " + short_end )
+            return short_start + " " + short_end 
+    else:
+        #print("shorten 6: " + start)
+        return start
+
 
 
 if __name__ == '__main__':
@@ -160,25 +234,38 @@ if __name__ == '__main__':
     events = get_events(data_root)
 
     for filename, events_for_file in events.items():
+
         #with open(Path(data_root, filename + "_events.txt"), "w", encoding='utf-8') as txt_file:
         #    txt_file.write(str(events_for_file))
 
-        #print(events_for_file[0])
-        #print(filename + ": num of dated Events:" + str(len(events_for_file)))
-        simple_events = [event for event in events_for_file if event['complex'] == False]
-        simple_events = [{"line_num": event['line_num'], "date_text": event['dates'][0][0], "date": event['dates'][0][1], "line": event['line'].strip()} for event in simple_events]
-        #print(simple_events)
-        #print(filename + ": num of Simple Events:" + str(len(simple_events)))
-        events_df = pd.DataFrame.from_dict(simple_events)
-        #print(events_df)
+        if filename == "eat-2022-3_body":
 
-        #print(events_df.info())
+            #print(events_for_file[0])
+            #print(filename + ": num of dated Events:" + str(len(events_for_file)))
+            simple_events = [event for event in events_for_file if event['complex'] == False]
+            simple_events = [{"line_num": event['line_num'], "date_text": event['dates'][0][0], "date": event['dates'][0][1], "line": event['line'].strip()} for event in simple_events]
+            #print(simple_events)
+            #print(filename + ": num of Simple Events:" + str(len(simple_events)))
+            events_df = pd.DataFrame.from_dict(simple_events)
+            #print(events_df)
 
-        events_df = events_df.sort_values(by=['date'])
-        events_df.to_csv(Path(data_root, filename + "_events.csv"), index=False)
+            #print(events_df.info())
+            events_df['shortened_text'] = events_df.apply(niave_text_reduction, axis=1)
 
-        event_values = {"dates": events_df['date'].to_list(), "labels": events_df['line'].to_list()}
-        #dg.draw_timeline(event_values)
+            #print(filename)
+            #print(events_df)
+            
 
-        date_cluster_analysis(Path(data_root, filename + "_events.csv"), filename)
+            events_df = events_df.sort_values(by=['date'])
+            events_df.to_csv(Path(data_root, filename + "_events.csv"), index=False)
+
+            event_values = {"dates": events_df['date'].to_list(), "labels": events_df['shortened_text'].to_list()}
+
+            print(event_values)
+
+            grouped_events = date_cluster_analysis(Path(data_root, filename + "_events.csv"), filename)
+
+            #print(grouped_events)
+
+            #dg.draw_timeline(event_values)
     
