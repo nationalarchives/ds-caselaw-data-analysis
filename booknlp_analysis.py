@@ -156,7 +156,10 @@ def date_cluster_analysis(timeline_path, filename=""):
 
         date_groups = []
         for group in groups:
-            date_group = [datetime.fromtimestamp(x).strftime("%Y-%m-%d") for x in group]
+            #print(group)
+            #date_group = [datetime.fromtimestamp(x).strftime("%Y-%m-%d") for x in group]
+            date_group = [datetime.fromtimestamp(x) for x in group]
+            date_group.sort()
             date_groups.append(date_group)
     else:
         date_groups = [dates_no_dups]
@@ -226,6 +229,23 @@ def niave_text_reduction(event_values):
         return start
 
 
+def combine_events_by_date(event_values):
+
+    combined_labels = {}
+
+    if len(event_values['dates']) != len(event_values['labels']):
+        raise Exception("Date mismatch between dates and labels")
+
+    dated_events = zip(event_values['dates'], event_values['labels'])
+
+    for event in dated_events:
+        if event[0] in combined_labels.keys():
+            combined_labels[event[0]] += " | " + event[1]
+        else:
+            combined_labels[event[0]] = event[1]
+
+    return combined_labels
+
 
 if __name__ == '__main__':
     data_root = Path("..", "booknlp", "output")
@@ -260,12 +280,21 @@ if __name__ == '__main__':
             events_df.to_csv(Path(data_root, filename + "_events.csv"), index=False)
 
             event_values = {"dates": events_df['date'].to_list(), "labels": events_df['shortened_text'].to_list()}
+            #print(event_values)
+            #dg.draw_timeline(event_values)
 
-            print(event_values)
+            combined_events = combine_events_by_date(event_values)
+            #print(combined_events)
+
+            #print({"dates": list(combined_events.keys()), "labels": list(combined_events.values())})
+
+            #dg.draw_timeline({"dates": list(combined_events.keys()), "labels": list(combined_events.values())})
+            
 
             grouped_events = date_cluster_analysis(Path(data_root, filename + "_events.csv"), filename)
+            print(grouped_events)
 
-            #print(grouped_events)
 
-            #dg.draw_timeline(event_values)
+
+            
     
