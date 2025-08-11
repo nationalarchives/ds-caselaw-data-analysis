@@ -108,7 +108,8 @@ def get_events(data_folder, regen=False):
 
     return (events_by_file)
 
-def date_cluster_analysis(timeline_path, filename=""):
+def date_cluster_analysis(timeline_path, filename="", merge_gap = 30, graph_split = 182):
+
     timeline = pd.read_csv(timeline_path)
     timeline['date'] = pd.to_datetime(timeline['date'])
     timeline.sort_values(by=['date'], inplace=True)
@@ -117,7 +118,7 @@ def date_cluster_analysis(timeline_path, filename=""):
     date_numbers = timeline['converted_dates'].to_list()
     dates = timeline['date'].to_list()
     dates_no_dups = list(set(dates)) 
-    #dates_no_dups.sort()
+    dates_no_dups.sort()
 
     #print("dates no dups: " + str(dates_no_dups))
     #print("dates as numbers: " + str(date_numbers))
@@ -154,19 +155,63 @@ def date_cluster_analysis(timeline_path, filename=""):
         jnb.fit(dates_as_numbers)
         groups = jnb.groups_
 
-        date_groups = []
-        for group in groups:
-            #print(group)
-            #date_group = [datetime.fromtimestamp(x).strftime("%Y-%m-%d") for x in group]
-            date_group = [datetime.fromtimestamp(x) for x in group]
-            date_group.sort()
-            date_groups.append(date_group)
+        merged_groups = [groups[0]]
+        for i in range(0, len(groups)):
+            last_date_in_group = datetime.fromtimestamp(groups[i][-1])
+            if i+1 < len(groups):
+                first_date_in_next_group = datetime.fromtimestamp(groups[i+1][0])
+                gap = first_date_in_next_group - last_date_in_group
+                #print("Last date: " + str(last_date_in_group) + ", Next date: " + str(first_date_in_next_group) + ", Gap: " + str(gap.days))
+
+                if int(gap.days) < merge_gap:
+                    #print("Before Merge" + str(merged_groups))
+                    new_group = np.concatenate((merged_groups[-1], groups[i+1]))
+                    new_group = np.sort(new_group)
+                    merged_groups[-1] = new_group
+                    #print("After Merge" + str(merged_groups))
+                else:
+                    merged_groups.append(groups[i+1])
+
+        #print("Merged: " + str(merged_groups))
+
+        first_group = [datetime.fromtimestamp(x) for x in merged_groups[0]]
+        date_groups = [first_group]
+        for i in range(0, len(merged_groups)):
+            #print("Loop: " + str(i) + "/" + str(len(merged_groups)))
+            #print("Before: " + str(date_groups))
+            last_date_in_group = datetime.fromtimestamp(merged_groups[i][-1])
+            if i+1 < len(merged_groups):
+                first_date_in_next_group = datetime.fromtimestamp(merged_groups[i+1][0])
+                diff = first_date_in_next_group - last_date_in_group
+                gap = diff.days
+                #print("Last date: " + str(last_date_in_group) + ", Next date: " + str(first_date_in_next_group) + ", Gap: " + str(gap))
+                
+                date_group = [datetime.fromtimestamp(x) for x in merged_groups[i+1]]
+                date_group.sort()
+                #print(date_group)
+
+                if gap > graph_split:
+                    #print("Append")
+                    date_groups.append([date_group])
+                else:
+                    #print("Current Group" + str(date_groups[-1]))
+                    #print(len(date_groups[-1]))
+                    if isinstance(date_groups[-1][0], list):
+                        date_groups[-1].append(date_group)
+                    else:
+                        date_groups[-1] = [date_groups[-1], date_group]
+                    #print("Join")
+
+            #print("After: " + str(date_groups))
+
+
     else:
-        date_groups = [dates_no_dups]
+        date_groups = [[dates_no_dups]]
         
     #print(date_groups)
     return(date_groups)
     
+
 def cluster_text():
     pass
 
@@ -291,7 +336,7 @@ if __name__ == '__main__':
             #dg.draw_timeline({"dates": list(combined_events.keys()), "labels": list(combined_events.values())})
             
 
-            grouped_events = date_cluster_analysis(Path(data_root, filename + "_events.csv"), filename)
+            grouped_events = date_cluster_analysis(Path(data_root, filename + "_events.csv"), filename, merge_gap=30, graph_split=182)
             print(grouped_events)
 
 
