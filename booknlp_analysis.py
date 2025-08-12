@@ -178,7 +178,7 @@ def date_cluster_analysis(timeline_path, filename="", merge_gap = 30, graph_spli
         date_groups = [first_group]
         for i in range(0, len(merged_groups)):
             #print("Loop: " + str(i) + "/" + str(len(merged_groups)))
-            #print("Before: " + str(date_groups))
+            print("Before: " + str(date_groups))
             last_date_in_group = datetime.fromtimestamp(merged_groups[i][-1])
             if i+1 < len(merged_groups):
                 first_date_in_next_group = datetime.fromtimestamp(merged_groups[i+1][0])
@@ -188,21 +188,21 @@ def date_cluster_analysis(timeline_path, filename="", merge_gap = 30, graph_spli
                 
                 date_group = [datetime.fromtimestamp(x) for x in merged_groups[i+1]]
                 date_group.sort()
-                #print(date_group)
+                print(date_group)
 
                 if gap > graph_split:
-                    #print("Append")
+                    print("Append")
                     date_groups.append([date_group])
                 else:
-                    #print("Current Group" + str(date_groups[-1]))
-                    #print(len(date_groups[-1]))
+                    print("Current Group: " + str(date_groups[-1]))
+                    print(len(date_groups[-1]))
                     if isinstance(date_groups[-1][0], list):
                         date_groups[-1].append(date_group)
                     else:
                         date_groups[-1] = [date_groups[-1], date_group]
-                    #print("Join")
+                    print("Join")
 
-            #print("After: " + str(date_groups))
+            print("After: " + str(date_groups))
 
 
     else:
@@ -303,10 +303,11 @@ if __name__ == '__main__':
         #with open(Path(data_root, filename + "_events.txt"), "w", encoding='utf-8') as txt_file:
         #    txt_file.write(str(events_for_file))
 
-        if filename == "eat-2022-3_body":
-
+        # Broken: eat-2022-1_body, eat-2022-4_body
+        # Needs Tweaks: eat-2022-5_body
+        if filename == "-eat-2022-2_body" or filename == "eat-2022-3_body" or filename == "eat-2022-5_body":
             #print(events_for_file[0])
-            #print(filename + ": num of dated Events:" + str(len(events_for_file)))
+            print(filename + ": num of dated Events:" + str(len(events_for_file)))
             simple_events = [event for event in events_for_file if event['complex'] == False]
             simple_events = [{"line_num": event['line_num'], "date_text": event['dates'][0][0], "date": event['dates'][0][1], "line": event['line'].strip()} for event in simple_events]
             #print(simple_events)
@@ -329,7 +330,7 @@ if __name__ == '__main__':
             #dg.draw_timeline(event_values)
 
             combined_events = combine_events_by_date(event_values)
-            #print(combined_events)
+            #print("Combined Events: " + str(combined_events))
 
             #print({"dates": list(combined_events.keys()), "labels": list(combined_events.values())})
 
@@ -337,7 +338,10 @@ if __name__ == '__main__':
             
 
             grouped_events = date_cluster_analysis(Path(data_root, filename + "_events.csv"), filename, merge_gap=30, graph_split=182)
-            print(grouped_events)
+            print("Grouped Events: " + str(grouped_events))
+            #print("Labels: " + str(list(combined_events.values())))
+
+            dg.draw_grouped_timeline({"dates": grouped_events, "labels": list(combined_events.values())}, title=filename.split('_body')[0], save_path=Path(data_root, filename.split('_body')[0] + ".png"))
 
 
 
