@@ -127,7 +127,7 @@ def draw_grouped_timeline(data, title="", save_path=""):
     dates_sections = data["dates"]
     number_of_sections = len(dates_sections)
 
-    print(dates_sections)
+    #print(dates_sections)
 
     all_labels = data["labels"]
     all_dates = []
@@ -139,7 +139,7 @@ def draw_grouped_timeline(data, title="", save_path=""):
     #print("Min date:" + str(min_date))
     #print("Max date:" + str(max_date))
 
-    print(number_of_sections)
+    print("Num of sections: " + str(number_of_sections))
 
     fig, axs = plt.subplots(1, number_of_sections, figsize=(18, 8), constrained_layout=True, sharey=True)
     #fig, axs = plt.subplots(1, number_of_sections, figsize=(15, 10), sharey=True)
@@ -151,7 +151,9 @@ def draw_grouped_timeline(data, title="", save_path=""):
 
     cmap = plt.get_cmap('tab10')
     colours = [mpl.colors.to_hex(cmap(i)) for i in range(number_of_groups)]
+    #print("Colour array: " + str(colours))
 
+    colour_start = 0
     start = 0
     for i, ax in enumerate(axs):
         dates_groups = dates_sections[i]
@@ -161,8 +163,8 @@ def draw_grouped_timeline(data, title="", save_path=""):
         #min_x = date(section_min_date.year, section_min_date.month - 3, section_min_date.day)
         #max_x = date(section_max_date.year, section_max_date.month + 3, section_max_date.day)
 
-        min_x = section_min_date - relativedelta(days=5)
-        max_x = section_max_date + relativedelta(days=5)
+        min_x = section_min_date - relativedelta(days=10)
+        max_x = section_max_date + relativedelta(days=10)
 
         #print(str(section_min_date) + " -> " + str(min_x))
         #print(str(section_max_date) + " -> " + str(max_x))
@@ -171,25 +173,40 @@ def draw_grouped_timeline(data, title="", save_path=""):
         ax.set_xlim(min_x, max_x)
         ax.axhline(0, xmin=0.05, xmax=0.95, c='deeppink', zorder=1)   
 
+        #print("Number of date groups in section: " + str(len(dates_groups)) + " out of " + str(number_of_groups) + " total")
+        
         for j in range(0, len(dates_groups)):
             dates = dates_groups[j]
             labels = all_labels[start:start+len(dates)]
 
+            colour_end = colour_start + 1
+            colour_array = colours[colour_start:colour_end]
+            #print(str(colour_start) + " - " + str(colour_end))
+
             start += len(dates)
             processed_labels += ['{0:%d %b %Y}:\n{1}'.format(d, hard_wrap(l)[0]) for l, d in zip (labels, dates)]
 
-            ax.scatter(dates, np.zeros(len(dates)), s=120, c=colours[j], zorder=2, cmap=cmap)
+            #print("Colour array: " + str(colours))
+            #print("Colours" + str(colour_array))
+            ax.scatter(dates, np.zeros(len(dates)), s=120, c=colour_array, zorder=2, cmap=cmap)
             ax.scatter(dates, np.zeros(len(dates)), s=30, c='darkmagenta', zorder=3)
             all_dates += dates
+            colour_start = colour_end
 
         label_offsets = np.zeros(len(all_dates))
         label_offsets[::4] = 1.025
         label_offsets[1::4] = -0.325
         label_offsets[2::4] = 0.325
         label_offsets[3::4] = -1.025
-        for j, (l, d) in enumerate(zip(processed_labels, all_dates)):
-            lines = hard_wrap(l)[1]
-            offset = label_offsets[j]
+
+        #print(processed_labels)
+        #print(all_dates)
+
+        for n, (l, d) in enumerate(zip(processed_labels, all_dates)):
+            #line_count = hard_wrap(l)[1]
+            #print("Event: " + str(n) + " - " + l)
+
+            offset = label_offsets[n]
             if offset > 0:
                 ax.text(d, offset, l, ha='center', fontfamily='serif', fontweight='bold', color='royalblue',fontsize=10, verticalalignment='baseline')
             else:
@@ -211,15 +228,25 @@ def draw_grouped_timeline(data, title="", save_path=""):
         ax.set_yticks([])
 
         d = 0.015
-        kwargs = dict(transform=ax.transAxes, color='k', clip_on=False)
+        kwargs = dict(transform=ax.transAxes, color='deeppink', clip_on=False)
+        #kwargs = dict(transform=ax.transAxes, clip_on=False)
         #ax.plot((-d, +d), (0.565-d, 0.5+d), **kwargs)
         if number_of_groups > 1:
-            if i != 0 and i != (number_of_groups -1):
+            #print("\nSub axis: " + str(i))
+            #print("Number of groups: " + str(number_of_sections))
+
+            if  i != 0: #and i != (number_of_groups -1):
+                #left hand side of axis line except first (left hand side of break) 
+                #   ----  X----  X----  X----
                 ax.plot((-d, +d), (0.565-d, 0.5+d), **kwargs)
-            elif i == 0:
+                #print("Add red")
+            
+            if i != (number_of_sections - 1):
+                #right hand side of axis line except the last (right hand side of break) 
+                #   ----X  ----X ----X ----
                 ax.plot((0.95-d, 0.95+d), (0.565-d, 0.5+d), **kwargs)
-
-
+                #print("Add green")
+                #print("i: " + str(i) + " , groups " + str(number_of_sections))
 
     plt.subplots_adjust(wspace=0.05,left=0.1,top=0.9,right=0.9,bottom=0.1)
     plt.setp(markerline, marker=',', color='darkmagenta')
@@ -228,11 +255,13 @@ def draw_grouped_timeline(data, title="", save_path=""):
     
     plt.suptitle(title, fontweight="bold", fontfamily='serif', fontsize=16, color='royalblue')
 
+    '''
     if save_path != "":
         plt.savefig(save_path)
-
+    '''
     plt.show()
-   
+
+    
 
 
 
@@ -296,9 +325,26 @@ grouped_timeline = {'dates': [[datetime.datetime(2019, 9, 7, 1, 0)], [datetime.d
                     }
 
 
-grouped_timeline_test = {'dates': [[[datetime.datetime(2019, 9, 7, 1, 0), datetime.datetime(2019, 9, 15, 1, 0), datetime.datetime(2019, 9, 19, 1, 0), datetime.datetime(2019, 9, 20, 1, 0)], [datetime.datetime(2019, 10, 23, 1, 0), datetime.datetime(2019, 10, 30, 0, 0)]], [[datetime.datetime(2025, 10, 23, 1, 0)]]],
+grouped_timeline_eat_2022_3_test = {'dates': [[[datetime.datetime(2019, 9, 7, 1, 0), datetime.datetime(2019, 9, 15, 1, 0), datetime.datetime(2019, 9, 19, 1, 0), datetime.datetime(2019, 9, 20, 1, 0)], [datetime.datetime(2019, 10, 23, 1, 0), datetime.datetime(2019, 10, 30, 0, 0)]], [[datetime.datetime(2025, 10, 23, 1, 0)]]],
                         'labels': ['the comment was made when none of us had heard of the Coronavirus and no ', "He enclosed a letter from his employer , TBW Global Limited , dated | Despite the letter from the Claimant 's employer dated", 'The complaints of unfair dismissal and unlawful deduction of wages , which it was acknowledged were outside the scope and jurisdiction of the employment tribunal for police officers were withdrawn at a closed preliminary hearing | hearing Employment Judge Hildebrand listed the strike out application of the discrimination complaint on limitation grounds to be heard on 23 October 2019 at an open preliminary hearing . | hearing when the letter from the employer was discussed and no appeal has been made in respect of that decision . | Turning to the hearing', 'He attached a handwritten letter dated', "In short that the claimant was unable to participate effectively in his hearing | hearing it appears that the claimant 's counsel raised the issue of the claimant being excused from giving evidence or giving evidence via video link at a substantive hearing , referring to the letter from his employer . | hearing .", "This matter comes before the appeal tribunal on the appellant 's appeal from the judgment of Employment Judge Hildebrand ( sitting alone ) at London Central Employment Tribunal which was sent to the parties", 'hearing that had been converted to a preliminary hearing to be by video link . | At the hearing | hearing .']
                         }
+
+grouped_timeline_eat_2022_1_test = {'dates': [
+                                                [
+                                                    [datetime.datetime(2011, 10, 1, 1, 0)]
+                                                ], 
+                                                [
+                                                    [datetime.datetime(2013, 2, 20, 0, 0), datetime.datetime(2013, 9, 24, 1, 0), datetime.datetime(2013, 12, 19, 0, 0)]
+                                                ], 
+                                                [
+                                                    [datetime.datetime(2020, 2, 4, 0, 0), datetime.datetime(2020, 2, 28, 0, 0)]
+                                                ], 
+                                                [
+                                                    [datetime.datetime(2020, 9, 16, 1, 0), datetime.datetime(2021, 3, 26, 0, 0)]
+                                                ]],
+                        'labels': ['claimant attended the scene of the brutal murder of a prisoner who had been mutilated and disembowelled .', 'The application form for ill - health retirement was submitted by the claimant | date on which the application for ill - health retirement was submitted .', 'The employment tribunal concluded that any delay was for a relatively short period of time because it focused on any conduct having ceased to have been unwanted by September 2013 .', 'The claimant submitted a claim form', ' there is prejudice to the respondent in having to answer complaints about matters which occurred in 2012 and 2013 .', 'The judgment was signed by the employment judge', 'By a notice of appeal originally submitted', 'He made an order with seal date 26 March 2021 .']
+                        }
+
 
 #timeline = {'dates': [Timestamp('2019-09-04 00:00:00'), Timestamp('2019-09-15 00:00:00'), Timestamp('2019-09-15 00:00:00'), Timestamp('2019-09-19 00:00:00'), Timestamp('2019-09-19 00:00:00'), Timestamp('2019-09-19 00:00:00'), Timestamp('2019-09-19 00:00:00'), Timestamp('2019-09-20 00:00:00'), Timestamp('2019-10-23 00:00:00'), Timestamp('2019-10-23 00:00:00'), Timestamp('2019-10-23 00:00:00'), Timestamp('2019-10-30 00:00:00'), Timestamp('2025-10-23 00:00:00'), Timestamp('2025-10-23 00:00:00'), Timestamp('2025-10-23 00:00:00')], 'labels': ['the comment was made when none of us had heard of the Coronavirus and no ', 'He enclosed a letter from his employer , TBW Global Limited , dated', "Despite the letter from the Claimant 's employer dated", 'The complaints of unfair dismissal and unlawful deduction of wages , which it was acknowledged were outside the scope and jurisdiction of the employment tribunal for police officers were withdrawn at a closed preliminary hearing', 'hearing Employment Judge Hildebrand listed the strike out application of the discrimination complaint on limitation grounds to be heard on 23 October 2019 at an open preliminary hearing .', 'hearing when the letter from the employer was discussed and no appeal has been made in respect of that decision .', 'Turning to the hearing', 'He attached a handwritten letter dated', 'In short that the claimant was unable to participate effectively in his hearing', "referring to the letter from his employer .", 'hearing .', "This matter comes before the appeal tribunal on the appellant 's appeal from the judgment of Employment Judge Hildebrand ( sitting alone ) at London Central Employment Tribunal which was sent to the parties", 'hearing that had been converted to a preliminary hearing to be by video link .', 'At the hearing', 'hearing .']}
 timeline = {'dates': [Timestamp('2019-09-07 00:00:00'), Timestamp('2019-09-15 00:00:00'), Timestamp('2019-09-19 00:00:00'), Timestamp('2019-09-20 00:00:00'), Timestamp('2019-10-23 00:00:00'), Timestamp('2019-10-30 00:00:00'), Timestamp('2025-10-23 00:00:00')], 'labels': ['the comment was made when none of us had heard of the Coronavirus and no ', "He enclosed a letter from his employer , TBW Global Limited , dated | Despite the letter from the Claimant 's employer dated", 'The complaints of unfair dismissal and unlawful deduction of wages , which it was acknowledged were outside the scope and jurisdiction of the employment tribunal for police officers were withdrawn at a closed preliminary hearing | hearing Employment Judge Hildebrand listed the strike out application of the discrimination complaint on limitation grounds to be heard on 23 October 2019 at an open preliminary hearing . | hearing when the letter from the employer was discussed and no appeal has been made in respect of that decision . | Turning to the hearing', 'He attached a handwritten letter dated', "In short that the claimant was unable to participate effectively in his hearing | hearing it appears that the claimant 's counsel raised the issue of the claimant being excused from giving evidence or giving evidence via video link at a substantive hearing , referring to the letter from his employer . | hearing .", "This matter comes before the appeal tribunal on the appellant 's appeal from the judgment of Employment Judge Hildebrand ( sitting alone ) at London Central Employment Tribunal which was sent to the parties", 'hearing that had been converted to a preliminary hearing to be by video link . | At the hearing | hearing .']}
@@ -313,5 +359,8 @@ if __name__ == '__main__':
     draw_bar_graph(num_of_refs_dist, "Number of References", "Number of Cases")
     '''
     #draw_timeline(timeline, title="eat-2022-3_body")
-    draw_grouped_timeline(grouped_timeline_test, title="eat-2022-3")
+    draw_grouped_timeline(grouped_timeline_eat_2022_3_test, title="eat-2022-3")
+
+    draw_grouped_timeline(grouped_timeline_eat_2022_1_test, title="eat-2022-1")
+
     #plt.show()
