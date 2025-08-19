@@ -272,18 +272,14 @@ def draw_grouped_timeline_with_gap_lib(data, title="", save_path=""):
     number_of_sections = len(dates_sections)
 
     #print(dates_sections)
-
-    all_labels = data["labels"]
-    all_dates = []
-    processed_labels = []
     
-    min_date = dates_sections[0][0][0]
-    max_date = dates_sections[-1][-1][-1]
+    #min_date = dates_sections[0][0][0]
+    #max_date = dates_sections[-1][-1][-1]
 
     #print("Min date:" + str(min_date))
     #print("Max date:" + str(max_date))
 
-    print("Num of sections: " + str(number_of_sections))
+    #print("Num of sections: " + str(number_of_sections))
 
     #fig, axs = plt.subplots(1, number_of_sections, figsize=(18, 8), constrained_layout=True, sharey=True)
     #fig, axs = plt.subplots(1, number_of_sections, figsize=(15, 10), sharey=True)
@@ -303,123 +299,135 @@ def draw_grouped_timeline_with_gap_lib(data, title="", save_path=""):
         section_min_date = section[0][0]
         section_max_date = section[-1][-1]
 
-        min_x = section_min_date - relativedelta(days=10)
-        max_x = section_max_date + relativedelta(days=10)
+        min_x = section_min_date - relativedelta(days=15)
+        max_x = section_max_date + relativedelta(days=15)
 
         xlims_list.append((min_x, max_x))
 
-    grid = GridSpec(nrows=1, ncols=number_of_sections, wspace=0.05)
+    #grid = GridSpec(nrows=1, ncols=number_of_sections, wspace=0.05)
     fig = plt.figure(figsize=(18, 8))
-    bax = brokenaxes(xlims=tuple(xlims_list))
+    bax = brokenaxes(xlims=tuple(xlims_list), d=0.01, tilt=60)
+    bax.axhline(0, xmin=0.05, xmax=0.95, c='deeppink', zorder=1) 
+    bax.set_ylim(-2, 1.75)
 
-    for section in dates_sections:
-        dates = section[0]
-        bax.scatter(dates, np.zeros(len(dates)), s=30, c='darkmagenta', zorder=3)
-
-    '''
+    all_labels = data["labels"]
+    all_dates = []
+    processed_labels = []
     colour_start = 0
     start = 0
-    for i, ax in enumerate(axs):
-        dates_groups = dates_sections[i]
-        section_min_date = dates_groups[0][0]
-        section_max_date = dates_groups[-1][-1]
+    for section in dates_sections:
 
-        #min_x = date(section_min_date.year, section_min_date.month - 3, section_min_date.day)
-        #max_x = date(section_max_date.year, section_max_date.month + 3, section_max_date.day)
-
-        min_x = section_min_date - relativedelta(days=10)
-        max_x = section_max_date + relativedelta(days=10)
-
-        #print(str(section_min_date) + " -> " + str(min_x))
-        #print(str(section_max_date) + " -> " + str(max_x))
-
-        ax.set_ylim(-2, 1.75)
-        #ax.set_xlim(min_x, max_x)
-        ax.axhline(0, xmin=0.05, xmax=0.95, c='deeppink', zorder=1)   
-
-        #print("Number of date groups in section: " + str(len(dates_groups)) + " out of " + str(number_of_groups) + " total")
+        #dates = section[0]
+        #bax.scatter(dates, np.zeros(len(dates)), s=30, c='darkmagenta', zorder=3)
         
-        for j in range(0, len(dates_groups)):
-            dates = dates_groups[j]
+        for j in range(0, len(section)):
+            dates = section[j]
             labels = all_labels[start:start+len(dates)]
-
-            colour_end = colour_start + 1
-            colour_array = colours[colour_start:colour_end]
-            #print(str(colour_start) + " - " + str(colour_end))
 
             start += len(dates)
             processed_labels += ['{0:%d %b %Y}:\n{1}'.format(d, hard_wrap(l)[0]) for l, d in zip (labels, dates)]
 
-            #print("Colour array: " + str(colours))
-            #print("Colours" + str(colour_array))
-            ax.scatter(dates, np.zeros(len(dates)), s=120, c=colour_array, zorder=2, cmap=cmap)
-            ax.scatter(dates, np.zeros(len(dates)), s=30, c='darkmagenta', zorder=3)
+            bax.scatter(dates, np.zeros(len(dates)), s=120, c=colours[colour_start], zorder=2, cmap=cmap)
+            bax.scatter(dates, np.zeros(len(dates)), s=30, c='darkmagenta', zorder=3)
             all_dates += dates
-            colour_start = colour_end
+            colour_start = colour_start + 1
 
-        label_offsets = np.zeros(len(all_dates))
-        label_offsets[::4] = 1.025
-        label_offsets[1::4] = -0.325
-        label_offsets[2::4] = 0.325
-        label_offsets[3::4] = -1.025
+    label_offsets = np.zeros(len(all_dates))
+    label_offsets[::4] = 1.025
+    label_offsets[1::4] = -0.325
+    label_offsets[2::4] = 0.325
+    label_offsets[3::4] = -1.025
 
         #print(processed_labels)
         #print(all_dates)
 
-        for n, (l, d) in enumerate(zip(processed_labels, all_dates)):
-            #line_count = hard_wrap(l)[1]
-            #print("Event: " + str(n) + " - " + l)
+    for n, (l, d) in enumerate(zip(processed_labels, all_dates)):
+        #line_count = hard_wrap(l)[1]
+        #print("Event: " + str(n) + " - " + l)
+        offset = label_offsets[n]
+        if offset > 0:
+            bax.text(d, offset, l, ha='center', fontfamily='serif', fontweight='bold', color='royalblue',fontsize=10, verticalalignment='baseline')
+        else:
+            bax.text(d, offset, l, ha='center', fontfamily='serif', fontweight='bold', color='royalblue',fontsize=10, verticalalignment='top')
 
-            offset = label_offsets[n]
-            if offset > 0:
-                ax.text(d, offset, l, ha='center', fontfamily='serif', fontweight='bold', color='royalblue',fontsize=10, verticalalignment='baseline')
-            else:
-                ax.text(d, offset, l, ha='center', fontfamily='serif', fontweight='bold', color='royalblue',fontsize=10, verticalalignment='top')
+    stems = np.zeros(len(all_dates))
+    stems[::4] = 1.0
+    stems[1::4] = -0.3
+    stems[2::4] = 0.3   
+    stems[3::4] = -1.0  
+    bax.stem(all_dates, stems)
 
-        stems = np.zeros(len(all_dates))
-        stems[::4] = 1.0
-        stems[1::4] = -0.3
-        stems[2::4] = 0.3   
-        stems[3::4] = -1.0  
-        markerline, stemline, baseline = ax.stem(all_dates, stems)
 
         # hide lines around chart
-        for spine in ["left", "top", "right", "bottom"]:
-            ax.spines[spine].set_visible(False)
-        '''
-    '''
-        # hide tick labels
-        ax.set_xticks([])
-        ax.set_yticks([])
+    #for spine in ["left", "top", "right", "bottom"]:
+    #    bax.spines[spine].set_visible(False)
 
-        d = 0.015
-        kwargs = dict(transform=ax.transAxes, color='deeppink', clip_on=False)
+    
+        # hide tick labels
+    #bax.set_xticks([])
+    #bax.set_yticks([])
+
+    size = fig.get_size_inches()
+
+    for i, ax in enumerate(bax.axs):
+        #ax.set_xticks([])
+        ax.set_yticks([])  
+        for spine in ["left", "top", "right"]:
+            ax.spines[spine].set_visible(False)
+
+
+        bounds = ax.get_position().bounds
+        d = 0.035
+        ylen=d * np.sin(35 * np.pi / 180) * size[0] / size[1]
+        xlen=d * np.cos(35 * np.pi / 180) / size[0] / bounds[2]
+
+        kwargs = dict(
+                    transform=ax.transAxes, 
+                    color='deeppink', 
+                    clip_on=False                     
+                )
         #kwargs = dict(transform=ax.transAxes, clip_on=False)
-        #ax.plot((-d, +d), (0.565-d, 0.5+d), **kwargs)
+
         if number_of_groups > 1:
             #print("\nSub axis: " + str(i))
             #print("Number of groups: " + str(number_of_sections))
 
+            # if not first section
             if  i != 0: #and i != (number_of_groups -1):
                 #left hand side of axis line except first (left hand side of break) 
                 #   ----  X----  X----  X----
-                ax.plot((-d, +d), (0.565-d, 0.5+d), **kwargs)
+                #ax.plot((-d, +d), (0.565-d, 0.5+d), **kwargs)
+                #print(str((+xlen, -xlen)) + str((0.565-ylen, 0.5+ylen)))
+
+                #ax.plot((+d, -d), (0.565-d, 0.5+d), **kwargs)
+                ax.plot((-xlen, +xlen), (0.565-ylen, 0.5+ylen), **kwargs)
                 #print("Add red")
+
             
+            # if not last section
             if i != (number_of_sections - 1):
                 #right hand side of axis line except the last (right hand side of break) 
                 #   ----X  ----X ----X ----
-                ax.plot((0.95-d, 0.95+d), (0.565-d, 0.5+d), **kwargs)
+                #print(str((1+d, 1-d)) + str((0.565-d, 0.5+d)))
+                #ax.plot((0.95+d, 0.95-d), (0.565-d, 0.5+d), **kwargs)
+                #ax.plot((1+d, 1-d), (0.565-d, 0.5+d), **kwargs)
+                ax.plot((1-xlen, 1+xlen), (0.565-ylen, 0.5+ylen), **kwargs)
                 #print("Add green")
                 #print("i: " + str(i) + " , groups " + str(number_of_sections))'''
+    
+
+    
     '''
     plt.subplots_adjust(wspace=0.05,left=0.1,top=0.9,right=0.9,bottom=0.1)
     plt.setp(markerline, marker=',', color='darkmagenta')
     plt.setp(stemline, color='darkmagenta')
     #plt.title(title)
+    '''    
     
+    #bax.set_title(title, fontweight="bold", fontfamily='serif', fontsize=16, color='royalblue')
+    bax.big_ax.get_yaxis().set_visible(False)
     plt.suptitle(title, fontweight="bold", fontfamily='serif', fontsize=16, color='royalblue')
-    '''
+
     '''
     if save_path != "":
         plt.savefig(save_path)
@@ -525,5 +533,5 @@ if __name__ == '__main__':
     #draw_grouped_timeline(grouped_timeline_eat_2022_3_test, title="eat-2022-3")
     #draw_grouped_timeline(grouped_timeline_eat_2022_1_test, title="eat-2022-1")
     draw_grouped_timeline_with_gap_lib(grouped_timeline_eat_2022_3_test, title="eat-2022-3")
-    #draw_grouped_timeline_with_gap_lib(grouped_timeline_eat_2022_1_test, title="eat-2022-1")
+    draw_grouped_timeline_with_gap_lib(grouped_timeline_eat_2022_1_test, title="eat-2022-1")
     #plt.show()
