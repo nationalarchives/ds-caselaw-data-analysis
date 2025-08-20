@@ -124,7 +124,7 @@ def draw_timeline(point_data, title=""):
     ax.set_title('', fontweight="bold", fontfamily='serif', fontsize=16, color='royalblue')
     plt.show()
 
-def draw_grouped_timeline(data, title="", save_path=""):
+def draw_grouped_timeline_old(data, title="", save_path=""):
     # Code drawn from https://dadoverflow.com/2021/08/17/making-timelines-with-python/
 
     dates_sections = data["dates"]
@@ -265,7 +265,7 @@ def draw_grouped_timeline(data, title="", save_path=""):
     plt.show()
 
     
-def draw_grouped_timeline_with_gap_lib(data, title="", save_path=""):
+def draw_grouped_timeline(data, title="", save_path=""):
     # Code drawn from https://dadoverflow.com/2021/08/17/making-timelines-with-python/
 
     dates_sections = data["dates"]
@@ -428,10 +428,9 @@ def draw_grouped_timeline_with_gap_lib(data, title="", save_path=""):
     bax.big_ax.get_yaxis().set_visible(False)
     plt.suptitle(title, fontweight="bold", fontfamily='serif', fontsize=16, color='royalblue')
 
-    '''
     if save_path != "":
         plt.savefig(save_path)
-    '''
+
     plt.show()
 
 
@@ -532,6 +531,4 @@ if __name__ == '__main__':
     #draw_timeline(timeline, title="eat-2022-3_body")
     #draw_grouped_timeline(grouped_timeline_eat_2022_3_test, title="eat-2022-3")
     #draw_grouped_timeline(grouped_timeline_eat_2022_1_test, title="eat-2022-1")
-    draw_grouped_timeline_with_gap_lib(grouped_timeline_eat_2022_3_test, title="eat-2022-3")
-    draw_grouped_timeline_with_gap_lib(grouped_timeline_eat_2022_1_test, title="eat-2022-1")
     #plt.show()
