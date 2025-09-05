@@ -449,7 +449,7 @@ if __name__ == '__main__':
 
     events = get_events(data_root, True)
 
-    '''
+    
     for filename, events_for_file in events.items():
 
         # Needs Tweaks: eat-2022-1_body, eat-2022-4_body, eat-2022-5_body
@@ -457,6 +457,6 @@ if __name__ == '__main__':
         #    event_analysis(events)
 
         event_analysis(data_root=data_root, filename=filename, simple_events=events)
-    '''
+    ''''''
             
     
