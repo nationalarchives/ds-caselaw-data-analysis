@@ -57,7 +57,7 @@ booknlp=BookNLP("en", model_params)
 
 
 input_folder = "C:/Users/flawrence/Documents/Projects/FCL/Research Area/ds-caselaw-data-analysis/data/processing/test-data"
-output_dir = "C:/Users/flawrence/Documents/Projects/FCL/Research Area/booknlp/output"
+output_dir = "C:/Users/flawrence/Documents/Projects/FCL/Research Area/booknlp/data"
 
 for file in Path(input_folder).glob("*_body.txt"):  
     judgement_id = Path(file).stem
