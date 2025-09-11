@@ -140,7 +140,18 @@ def get_events(data_folder, regen=False):
     return (events_by_file)
 
 def process_sentences(output_folder, filename, df, sentences, QA=True):
+    ''' Processes the sentences strings to identify dates and returns dated events and writes cvs of values if QA is true
 
+        Args: 
+            output_folder - path to the folder where the files should be written
+            filename - string name of file being processed
+            df - dataframe of values
+            sentences - list of sentences
+            QA - boolean. if True then output CSVs with line information. Default is True.
+
+        Returns: 
+            List of possible events. CSVs of lines if QA is True.
+    '''
 
     all_lines = {}
     filtered_lines = []
