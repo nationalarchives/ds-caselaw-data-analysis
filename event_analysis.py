@@ -116,7 +116,7 @@ def get_events(data_folder, regen=False):
             #print(possible_events)
             events_by_file[file] = possible_events
         else:
-            print("Generating timeline")
+            print("Generating timeline for " + file)
             possible_events = []
             #print("For " + file)
             events = df[~df['event'].isnull()]
@@ -160,8 +160,9 @@ def process_sentences(output_folder, filename, df, sentences, QA=True):
     for sentence in sentences:
         event = df[df["sentence_ID"] == int(sentence)]
         words = event.word.tolist()
+        words = [str(word) for word in words]
         resentence = " ".join(words)
-        dates = search_dates(resentence)
+        dates = search_dates(resentence, languages=['en'], settings={'RETURN_AS_TIMEZONE_AWARE': False})
         all_lines[sentence] = resentence
 
         if dates:
@@ -363,8 +364,11 @@ def niave_text_reduction(event_values):
             short_start = start
             short_end = end
 
-            short_start = re.search(r'[^\w\s]\s*([\w\s]*)$', start).group(1)
-            short_end = re.search(r'^([\w\s]*)[^\w\s]', end).group(1)
+            if re.search(r'[^\w\s]\s*([\w\s]*)$', start):
+                short_start = re.search(r'[^\w\s]\s*([\w\s]*)$', start).group(1)
+
+            if re.search(r'^([\w\s]*)[^\w\s]', end):     
+                short_end = re.search(r'^([\w\s]*)[^\w\s]', end).group(1)
 
             #print("shorten 7: " + short_start + " " + short_end )
             return short_start + " " + short_end 
@@ -398,12 +402,12 @@ def combine_events_by_date(event_values):
 
     return combined_labels
 
-def event_analysis(data_root, filename, simple_events):
+def event_analysis(data_root, filename, events_for_file):
     ''' Main analysis function.
     
         Args:
             data_root - folder with data files
-            filename - name of file beign processed
+            filename - name of file being processed
             simple_events - dictionary with list of event information by file
 
         Returns:
@@ -416,6 +420,8 @@ def event_analysis(data_root, filename, simple_events):
 
     #print(events_for_file[0])
     #print(filename + ": num of dated Events:" + str(len(events_for_file)))
+    print("Analysing " + filename)
+    #print(events_for_file)
     simple_events = [event for event in events_for_file if event['complex'] == False]
     simple_events = [{"line_num": event['line_num'], "date_text": event['dates'][0][0], "date": event['dates'][0][1], "line": event['line'].strip()} for event in simple_events]
     #print(simple_events)
@@ -443,14 +449,25 @@ def event_analysis(data_root, filename, simple_events):
     #print({"dates": list(combined_events.keys()), "labels": list(combined_events.values())})
 
     #dg.draw_timeline({"dates": list(combined_events.keys()), "labels": list(combined_events.values())})
-    
-
+    ''' 
     grouped_events = date_cluster_analysis(Path(data_root, filename + "_events.csv"), merge_gap=30, graph_split=182, filename=filename)
+    
     #print("Grouped Events: " + str(grouped_events))
     #print("Labels: " + str(list(combined_events.values())))
 
     dg.draw_grouped_timeline({"dates": grouped_events, "labels": list(combined_events.values())}, title=filename.split('_body')[0], save_path=Path(data_root, filename.split('_body')[0] + ".png"))
 
+    '''
+    if Path(data_root, filename + "_manual_events.csv").exists():
+        manual_events_df = pd.read_csv(Path(data_root, filename + "_manual_events.csv"))  
+        manual_events_df = manual_events_df.sort_values(by=['date'])
+        manual_events_values = {"dates": manual_events_df['date'].to_list(), "labels": manual_events_df['shortened_text'].to_list()}
+        combined_manual_events = combine_events_by_date(manual_events_values)
+
+        manual_grouped_events = date_cluster_analysis(Path(data_root, filename + "_manual_events.csv"), merge_gap=30, graph_split=182, filename=filename)
+        dg.draw_grouped_timeline({"dates": manual_grouped_events, "labels": list(combined_manual_events.values())}, title=filename.split('_body')[0]+" (manual)", save_path=Path(data_root, filename.split('_body')[0] + "_manual.png"))
+
+       
 
 
 
@@ -462,12 +479,9 @@ if __name__ == '__main__':
 
     
     for filename, events_for_file in events.items():
-
-        # Needs Tweaks: eat-2022-1_body, eat-2022-4_body, eat-2022-5_body
-        #if filename == "eat-2022-5_body":
-        #    event_analysis(events)
-
-        event_analysis(data_root=data_root, filename=filename, simple_events=events)
+        #if filename == 'EWHC-2844-QB_body':
+            # sending first item is a hack which seems to work. Need to replace this so it isn't needed.
+        event_analysis(data_root=data_root, filename=filename, events_for_file=events_for_file[0])
     ''''''
             
     
