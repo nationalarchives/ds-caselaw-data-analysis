@@ -400,12 +400,13 @@ def process_refs (processing_root, df, columns, limit=100, cutoff=2, type="test"
     #print(list_of_refs)
 
 def quick_fix(processing_root, pkl_file):
+    # Broken - 2025-09-17
     references_df = pd.read_pickle(pkl_file)
 
     print(references_df.info())
     
     column_names = references_df.columns.tolist()
-    #print(column_names)
+    print(column_names)
 
     cases_df = references_df[references_df['uk:type'] == "case"].dropna(axis=1, how='all')
     #print("Cases columns: " + str(cases_df.columns.tolist()))
@@ -431,9 +432,9 @@ def quick_fix(processing_root, pkl_file):
                 for i in range(1, len(matching_cols)):
                     references_df = references_df[matching_cols[0]].fillna(matching_cols[i])
 
-                
+    print(references_df)
 
-    print(references_df.columns.tolist())
+    #print(references_df.columns.tolist())
 
     cases_df = references_df[references_df['uk:type'] == "case"].dropna(axis=1, how='all')
     cases_df.to_csv(Path(processing_root, "cases_references_transformed.csv"))
