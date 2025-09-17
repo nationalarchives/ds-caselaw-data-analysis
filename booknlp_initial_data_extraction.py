@@ -56,7 +56,7 @@ booknlp=BookNLP("en", model_params)
 
 
 
-input_folder = "C:/Users/flawrence/Documents/Projects/FCL/Research Area/ds-caselaw-data-analysis/data/processing/test-data"
+input_folder = "C:/Users/flawrence/Documents/Projects/FCL/Research Area/ds-caselaw-data-analysis/data/extracted_text/test"
 output_dir = "C:/Users/flawrence/Documents/Projects/FCL/Research Area/booknlp/data"
 
 for file in Path(input_folder).glob("*_body.txt"):  
