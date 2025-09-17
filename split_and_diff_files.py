@@ -61,7 +61,7 @@ def process_parts(folder, filename, parts):
             print("Can't split line in "  + filename + ": " + part + ": " + str(e))
             break
             
-        part_dict = {"data":folder, "file": filename, "element": element.strip().tolower(), 'text':text.strip()}
+        part_dict = {"data":folder, "file": filename, "element": element.strip().lower(), 'text':text.strip()}
         
         if '||' in attributes:
             attribute_list = attributes.split("||")
@@ -70,7 +70,7 @@ def process_parts(folder, filename, parts):
             for attribute in attribute_list:
                 try:
                     attr, value = attribute.split("=", 1)
-                    part_dict.update({attr.strip().tolower(): value.strip()})
+                    part_dict.update({attr.strip().lower(): value.strip()})
                 except ValueError as e:
                     print("Error in data: " + folder + ", file: " + filename + ", attribute: " + attribute + " - " + str(e))
         
@@ -131,6 +131,10 @@ def output_to_text_files(processing_root, folder, filename, texts):
     bodytextfile_path = Path(processing_root, "extracted_text", folder, filename + "_body.txt")
     headtextfile_path = Path(processing_root, "extracted_text", folder, filename + "_head.txt")
     partfile_path = Path(processing_root, "extracted_values", folder, filename + ".txt")
+
+    #print(bodytextfile_path)
+    #print(headtextfile_path)
+    #print(partfile_path)
     
     parts, head_text, body_text = texts
     
@@ -386,6 +390,9 @@ def main(processing_root, data_paths, folder_map, cache_path, folders = []):
             values_file_to_check = Path(processing_root, "extracted_values", current_folder, str(filename) + ".txt")
             head_file_to_check = Path(processing_root, "extracted_text", current_folder, str(filename) + "_head.txt")
             body_file_to_check = Path(processing_root, "extracted_text", current_folder, str(filename) + "_body.txt")
+
+            #print(xml_file_to_check)
+            #print(body_file_to_check)
             
             if xml_file_to_check.exists():
                 exists_count += 1
@@ -442,9 +449,9 @@ if __name__ == '__main__':
     processing_root = "data"
 
     #test data
-    test_paths = ["xml-test"]
-    test_pass_nums = {"xml-test":"test"}
-    test_cache_path = processing_root + "/processing/test/cache/extracted_data"
+    test_paths = ["xml-test-data"]
+    test_pass_nums = {"xml-test-data":"test"}
+    test_cache_path = processing_root + "/processing/test-data/cache"
 
     #FCL data
     test_enrichment_paths = ["xml-enriched-bucket-test", "xml-second-phase-enriched-bucket-test", "xml-third-phase-enriched-bucket-test"]
