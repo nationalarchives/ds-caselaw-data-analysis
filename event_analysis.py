@@ -483,18 +483,18 @@ if __name__ == '__main__':
     data_root = Path("..", "booknlp", "data")
     #clean_files(data_root)
 
-    events1 = get_events(data_root, True)
+    #events1 = get_events(data_root, True)
     events2 = get_events(data_root)
 
     #print(events1)
     #print(events2)
 
-    ''''''
+    '''
     for filename, events_for_file in events1.items():
         #if filename == 'EWHC-2017-QB_body':
             # sending first item is a hack which seems to work. Need to replace this so it isn't needed.
         event_analysis(data_root=data_root, filename=filename, events_for_file=events_for_file)
-
+    '''
     for filename, events_for_file in events2.items():
     #if filename == 'EWHC-2017-QB_body':
         # sending first item is a hack which seems to work. Need to replace this so it isn't needed.
