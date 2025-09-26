@@ -90,28 +90,34 @@ def get_events(data_folder, regen=False):
         filename = Path(file).stem
         print("Processing " + filename)
 
-        if (Path(data_folder, filename+".pkl").exists() and regen == False):
-            print("Loading values from pkl")
-            df = pd.read_pickle(Path(data_folder, filename+".pkl"))
+        if (Path(data_folder, 'cache', filename+".pkl").exists() and regen == False):
+            print("Loading values from pkl for " + filename)
+            df = pd.read_pickle(Path(data_folder, 'cache', filename+".pkl"))
             dataframes[filename] = df
             #print(df.info())
         else:
-            print("Reading values from TSV")
+            print("Reading values from BookNLP TSV for " + filename)
             clean_file(file)
             df = pd.read_csv(file, delimiter="\t")             
             dataframes[filename] = df
             #print(df.info())
-            df.to_pickle(Path(data_folder, filename+".pkl"))
+            df.to_pickle(Path(data_folder, 'cache', filename+".pkl"))
 
     for file, df in dataframes.items():
-        if Path(data_root, file + "_events.csv").exists() and regen == False:
-            print("Loading existing timeline values from CSV")
-            processed_data = pd.read_csv(Path(data_root, file + "_events.csv"))
+        if Path(data_root, 'cache', file + "_events.csv").exists() and regen == False:
+            print("Loading existing timeline values from CSV for " + file)
+            processed_data = pd.read_csv(Path(data_root, 'cache', file + "_events.csv"))
             #print(processed_data)
             loaded_events = processed_data.to_dict()
             possible_events = []
             for i in range(0, len(loaded_events['line_num'])):
-                possible_events.append({"line_num": loaded_events['line_num'][i], "dates": [(loaded_events['date_text'][i], datetime.strptime(loaded_events['date'][i], "%Y-%m-%d"))], "line": loaded_events['line'][i], "complex": False})
+                try:
+                    date = datetime.strptime(loaded_events['date'][i], "%Y-%m-%d %H:%M:%S")
+                except ValueError:
+                    date = datetime.strptime(loaded_events['date'][i], "%Y-%m-%d")                             
+
+                print(loaded_events['date'][i])
+                possible_events.append({"line_num": loaded_events['line_num'][i], "dates": [(loaded_events['date_text'][i], date)], "line": loaded_events['line'][i], "complex": False})
 
             #print(possible_events)
             events_by_file[file] = possible_events
@@ -126,14 +132,14 @@ def get_events(data_folder, regen=False):
             sentences = list(set(found_events.sentence_ID.tolist()))
             sentences.sort()
 
-            possible_events.append(process_sentences(data_folder, file, df, sentences))
+            events_by_file[file] = process_sentences(data_folder, file, df, sentences)
 
             not_events = df[~df["sentence_ID"].isin(sentences)]
             discarded = list(set(not_events.sentence_ID.tolist()))
             discarded.sort()
             process_sentences(data_folder, file + '_unused', df, discarded)
 
-            events_by_file[file] = possible_events
+            #events_by_file[file] = possible_events
         #print(len(events_by_file[file]))
         #print(events_by_file[file][0])
 
@@ -174,17 +180,19 @@ def process_sentences(output_folder, filename, df, sentences, QA=True):
                 possible_events.append({"line_num": sentence, "dates": filtered_dates, "line": resentence, "complex": False})
                 filtered_lines.append((sentence, resentence, 'Simple'))
 
+
     if QA:
-        with open(Path(output_folder, filename + '_all_lines.csv'), "w", encoding='utf-8', newline='') as all_lines_file:
+        with open(Path(output_folder, 'cache', filename + '_all_lines.csv'), "w", encoding='utf-8', newline='') as all_lines_file:
             writer = csv.writer(all_lines_file)
             for row in all_lines.items():
                 writer.writerow(row)
 
-        with open(Path(output_folder, filename + '_dated_lines.csv'), "w", encoding='utf-8', newline='') as dated_lines_file:
+        with open(Path(output_folder, 'cache', filename + '_dated_lines.csv'), "w", encoding='utf-8', newline='') as dated_lines_file:
             writer = csv.writer(dated_lines_file)
             for row in filtered_lines:
                 writer.writerow(row)
     
+    #print(possible_events)
     return possible_events
 
 
@@ -415,13 +423,13 @@ def event_analysis(data_root, filename, events_for_file):
     
     '''
 
-    #with open(Path(data_root, filename + "_events.txt"), "w", encoding='utf-8') as txt_file:
+    #with open(Path(data_root, 'cache', filename + "_events.txt"), "w", encoding='utf-8') as txt_file:
     #    txt_file.write(str(events_for_file))
 
     #print(events_for_file[0])
     #print(filename + ": num of dated Events:" + str(len(events_for_file)))
     print("Analysing " + filename)
-    #print(events_for_file)
+    print(events_for_file)
     simple_events = [event for event in events_for_file if event['complex'] == False]
     simple_events = [{"line_num": event['line_num'], "date_text": event['dates'][0][0], "date": event['dates'][0][1], "line": event['line'].strip()} for event in simple_events]
     #print(simple_events)
@@ -437,7 +445,7 @@ def event_analysis(data_root, filename, events_for_file):
     
 
     events_df = events_df.sort_values(by=['date'])
-    events_df.to_csv(Path(data_root, filename + "_events.csv"), index=False)
+    events_df.to_csv(Path(data_root,'cache', filename + "_events.csv"), index=False)
 
     event_values = {"dates": events_df['date'].to_list(), "labels": events_df['shortened_text'].to_list()}
     #print(event_values)
@@ -449,23 +457,23 @@ def event_analysis(data_root, filename, events_for_file):
     #print({"dates": list(combined_events.keys()), "labels": list(combined_events.values())})
 
     #dg.draw_timeline({"dates": list(combined_events.keys()), "labels": list(combined_events.values())})
-    ''' 
-    grouped_events = date_cluster_analysis(Path(data_root, filename + "_events.csv"), merge_gap=30, graph_split=182, filename=filename)
-    
+   
+    grouped_events = date_cluster_analysis(Path(data_root, 'cache', filename + "_events.csv"), merge_gap=30, graph_split=182, filename=filename)
+    dg.draw_grouped_timeline({"dates": grouped_events, "labels": list(combined_events.values())}, title=filename.split('_body')[0], save_path=Path(data_root, 'cache', filename.split('_body')[0] + ".png"))
+   
     #print("Grouped Events: " + str(grouped_events))
     #print("Labels: " + str(list(combined_events.values())))
 
-    dg.draw_grouped_timeline({"dates": grouped_events, "labels": list(combined_events.values())}, title=filename.split('_body')[0], save_path=Path(data_root, filename.split('_body')[0] + ".png"))
-
-    '''
-    if Path(data_root, filename + "_manual_events.csv").exists():
-        manual_events_df = pd.read_csv(Path(data_root, filename + "_manual_events.csv"))  
+    
+    
+    if Path(data_root, 'cache', filename + "_manual_events.csv").exists():
+        manual_events_df = pd.read_csv(Path(data_root,'cache', filename + "_manual_events.csv"))  
         manual_events_df = manual_events_df.sort_values(by=['date'])
         manual_events_values = {"dates": manual_events_df['date'].to_list(), "labels": manual_events_df['shortened_text'].to_list()}
         combined_manual_events = combine_events_by_date(manual_events_values)
 
-        manual_grouped_events = date_cluster_analysis(Path(data_root, filename + "_manual_events.csv"), merge_gap=30, graph_split=182, filename=filename)
-        dg.draw_grouped_timeline({"dates": manual_grouped_events, "labels": list(combined_manual_events.values())}, title=filename.split('_body')[0]+" (manual)", save_path=Path(data_root, filename.split('_body')[0] + "_manual.png"))
+        manual_grouped_events = date_cluster_analysis(Path(data_root, 'cache', filename + "_manual_events.csv"), merge_gap=30, graph_split=182, filename=filename)
+        dg.draw_grouped_timeline({"dates": manual_grouped_events, "labels": list(combined_manual_events.values())}, title=filename.split('_body')[0]+" (manual)", save_path=Path(data_root, 'visualisations', filename.split('_body')[0] + "_manual.png"))
 
        
 
@@ -475,13 +483,22 @@ if __name__ == '__main__':
     data_root = Path("..", "booknlp", "data")
     #clean_files(data_root)
 
-    events = get_events(data_root, True)
+    events1 = get_events(data_root, True)
+    events2 = get_events(data_root)
 
-    
-    for filename, events_for_file in events.items():
-        #if filename == 'EWHC-2844-QB_body':
-            # sending first item is a hack which seems to work. Need to replace this so it isn't needed.
-        event_analysis(data_root=data_root, filename=filename, events_for_file=events_for_file[0])
+    #print(events1)
+    #print(events2)
+
     ''''''
+    for filename, events_for_file in events1.items():
+        #if filename == 'EWHC-2017-QB_body':
+            # sending first item is a hack which seems to work. Need to replace this so it isn't needed.
+        event_analysis(data_root=data_root, filename=filename, events_for_file=events_for_file)
+
+    for filename, events_for_file in events2.items():
+    #if filename == 'EWHC-2017-QB_body':
+        # sending first item is a hack which seems to work. Need to replace this so it isn't needed.
+        event_analysis(data_root=data_root, filename=filename, events_for_file=events_for_file)
+    
             
     
