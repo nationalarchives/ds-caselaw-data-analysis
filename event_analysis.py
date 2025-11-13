@@ -9,7 +9,7 @@ import numpy as np
 import re, csv
 
 def clean_files(data_folder):
-    ''' Function gets rid of smart quotes in all the *.tokens.tsv files in a given folder.
+    ''' Function gets rid of smart quotes in all the *.tokens files in a given folder.
     
         Args:
             data_folder - path to folder with the data files
@@ -19,7 +19,7 @@ def clean_files(data_folder):
 
     '''
 
-    for file in data_folder.glob("*.tokens.tsv"):  
+    for file in data_folder.glob("*.tokens"):  
         with open(file, "r", encoding='utf-8') as orig_file:
             cleaned_file = orig_file.read().replace('“','"').replace('”','"')
 
@@ -96,12 +96,13 @@ def get_events(data_folder, regen=False):
             dataframes[filename] = df
             #print(df.info())
         else:
-            print("Reading values from BookNLP TSV for " + filename)
+            print("Reading values from BookNLP for " + filename)
             clean_file(file)
-            df = pd.read_csv(file, delimiter="\t")             
+            df = pd.read_csv(file, delimiter="\t", quoting=csv.QUOTE_NONE)             
             dataframes[filename] = df
             #print(df.info())
             df.to_pickle(Path(data_folder, 'cache', filename+".pkl"))
+            df.to_csv(Path(data_folder, 'cache', filename+"_lines.csv"))
 
     for file, df in dataframes.items():
         if Path(data_root, 'cache', file + "_events.csv").exists() and regen == False:
@@ -483,8 +484,8 @@ if __name__ == '__main__':
     data_root = Path("..", "booknlp", "data")
     #clean_files(data_root)
 
-    #events1 = get_events(data_root, True)
-    events2 = get_events(data_root)
+    events = get_events(data_root, True)
+    #events = get_events(data_root)
 
     #print(events1)
     #print(events2)
@@ -495,10 +496,10 @@ if __name__ == '__main__':
             # sending first item is a hack which seems to work. Need to replace this so it isn't needed.
         event_analysis(data_root=data_root, filename=filename, events_for_file=events_for_file)
     '''
-    for filename, events_for_file in events2.items():
-    #if filename == 'EWHC-2017-QB_body':
-        # sending first item is a hack which seems to work. Need to replace this so it isn't needed.
-        event_analysis(data_root=data_root, filename=filename, events_for_file=events_for_file)
+    for filename, events_for_file in events.items():
+        if filename == 'eat-2022-1_body':
+            # sending first item is a hack which seems to work. Need to replace this so it isn't needed.
+            event_analysis(data_root=data_root, filename=filename, events_for_file=events_for_file)
     
             
     
