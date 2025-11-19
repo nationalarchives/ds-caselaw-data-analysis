@@ -86,10 +86,17 @@ def get_events(data_folder, source="", regen=False):
 
     dataframes = {}
     events_by_file = {}
+    if source == "":
+        source_column = ""
+    else:
+        source_column = source + "_sentence_ID"
 
     for file in data_folder.glob("*.tokens"):  
         filename = Path(file).stem
-        print("Processing " + filename)
+        #print("Processing " + filename)
+        #print("Regen: " + str(regen))
+        #print("Source: " + source)
+        #print("PKL exists: " + str(Path(data_folder, 'cache', filename+".pkl").exists()))
 
         if (Path(data_folder, 'cache', filename+".pkl").exists() and regen == False):
 
@@ -101,17 +108,23 @@ def get_events(data_folder, source="", regen=False):
                 print("Loading values from " + source + " csv for " + filename)
                 df = pd.read_csv(Path(data_folder, 'cache', filename + "_" + source + ".csv"))
                 dataframes[source + "_" + filename] = df
+           
+            #print(df.info())
+        else:
+            if source == "" or not(Path(data_folder, 'cache', filename + "_" + source + ".csv").exists()):
+                print("Reading values from " + source + " for " + filename)
+                clean_file(file)
+                df = pd.read_csv(file, delimiter="\t", quoting=csv.QUOTE_NONE)
+                dataframes[filename] = df                            
+            else:
+                print("Reading values from BookNLP for " + filename + "_" + source)
+                df = pd.read_csv(Path(data_folder, 'cache', filename + "_" + source + ".csv"))
+                dataframes[source + "_" + filename] = df
 
             
             #print(df.info())
-        else:
-            print("Reading values from BookNLP for " + filename)
-            clean_file(file)
-            df = pd.read_csv(file, delimiter="\t", quoting=csv.QUOTE_NONE)             
-            dataframes[filename] = df
-            #print(df.info())
             df.to_pickle(Path(data_folder, 'cache', filename+".pkl"))
-            df.to_csv(Path(data_folder, 'cache', filename+"_lines.csv"))
+            df.to_csv(Path(data_folder, 'cache', filename+"_lines.csv"), index=False)
 
     for file, df in dataframes.items():
         if Path(data_root, 'cache', file + "_events.csv").exists() and regen == False:
@@ -133,33 +146,44 @@ def get_events(data_folder, source="", regen=False):
             events_by_file[file] = possible_events
         else:
             print("Generating timeline for " + file)
+            print("Sentence column: " + source_column)
             possible_events = []
             #print("For " + file)
             events = df[~df['event'].isnull()]
             found_events = events.loc[df["event"] == "EVENT"]
             #event_words = set(found_events.word.tolist())
             #print(event_words)
-            if source == "" or source not in df.columns:
+            if source == "" or source_column not in df.columns:
+                if source != "" and source_column not in df.columns:
+                    print(source_column + " not available. Generating events by 'sentence_ID'")
+                else:
+                    print("Generating events by sentence_ID")
+
                 sentences = list(set(found_events.sentence_ID.tolist()))
                 sentences.sort()
+                #print("BookNLP: Events")
                 events_by_file[file] = process_sentences(data_folder, file, df, sentences, "sentence_ID")
                 not_events = df[~df["sentence_ID"].isin(sentences)]
                 discarded = list(set(not_events.sentence_ID.tolist()))
                 discarded.sort()
+                #print("BookNLP: No Events")
                 process_sentences(data_folder, file + '_unused', df, discarded, "sentence_ID")
             else:
-                sentences = list(set(found_events[source + "_sentence_ID"].tolist()))
+                print("Generating events by " + source_column)
+                sentences = list(set(found_events[source_column].tolist()))
                 sentences.sort()
-                events_by_file[file] = process_sentences(data_folder, file, df, sentences, source + "_sentence_ID")
+                #print(source +  ": Events")
+                events_by_file[file] = process_sentences(data_folder, file, df, sentences, sentence_column=source_column)
 
-                not_events = df[~df[source + "_sentence_ID"].isin(sentences)]
-                discarded = list(set(not_events[source + "_sentence_ID"].tolist()))
+                not_events = df[~df[source_column].isin(sentences)]
+                discarded = list(set(not_events[source_column].tolist()))
                 discarded.sort()
-                process_sentences(data_folder, file + '_unused', df, discarded, source + "_sentence_ID")
+                #print(source +  ": No Events")
+                process_sentences(data_folder, file + '_unused', df, discarded, sentence_column=source_column)
 
-            #events_by_file[file] = possible_events
-        #print(len(events_by_file[file]))
+        print(len(events_by_file[file]))
         #print(events_by_file[file][0])
+        #print(events_by_file[file])
 
     return (events_by_file)
 
@@ -181,6 +205,7 @@ def process_sentences(output_folder, filename, df, sentences, sentence_column, Q
     all_lines = {}
     filtered_lines = []
     possible_events = []
+    #print(sentence_column)
 
     for sentence in sentences:
         event = df[df[sentence_column] == int(sentence)]
@@ -429,7 +454,7 @@ def combine_events_by_date(event_values):
 
     return combined_labels
 
-def event_analysis(data_root, filename, events_for_file):
+def event_analysis(data_root, filename, events_for_file, gold_standard=""):
     ''' Main analysis function.
     
         Args:
@@ -448,7 +473,7 @@ def event_analysis(data_root, filename, events_for_file):
     #print(events_for_file[0])
     #print(filename + ": num of dated Events:" + str(len(events_for_file)))
     print("Analysing " + filename)
-    print(events_for_file)
+    #print(events_for_file)
     simple_events = [event for event in events_for_file if event['complex'] == False]
     simple_events = [{"line_num": event['line_num'], "date_text": event['dates'][0][0], "date": event['dates'][0][1], "line": event['line'].strip()} for event in simple_events]
     #print(simple_events)
@@ -482,16 +507,14 @@ def event_analysis(data_root, filename, events_for_file):
    
     #print("Grouped Events: " + str(grouped_events))
     #print("Labels: " + str(list(combined_events.values())))
-
     
-    
-    if Path(data_root, 'cache', filename + "_manual_events.csv").exists():
-        manual_events_df = pd.read_csv(Path(data_root,'cache', filename + "_manual_events.csv"))  
+    if Path(data_root, 'cache', gold_standard).exists():
+        manual_events_df = pd.read_csv(Path(data_root,'cache', gold_standard))  
         manual_events_df = manual_events_df.sort_values(by=['date'])
         manual_events_values = {"dates": manual_events_df['date'].to_list(), "labels": manual_events_df['shortened_text'].to_list()}
         combined_manual_events = combine_events_by_date(manual_events_values)
 
-        manual_grouped_events = date_cluster_analysis(Path(data_root, 'cache', filename + "_manual_events.csv"), merge_gap=30, graph_split=182, filename=filename)
+        manual_grouped_events = date_cluster_analysis(Path(data_root, 'cache', gold_standard), merge_gap=30, graph_split=182, filename=filename)
         dg.draw_grouped_timeline({"dates": manual_grouped_events, "labels": list(combined_manual_events.values())}, title=filename.split('_body')[0]+" (manual)", save_path=Path(data_root, 'visualisations', filename.split('_body')[0] + "_manual.png"))
 
        
@@ -520,7 +543,10 @@ if __name__ == '__main__':
     for filename, events_for_file in events.items():
         if filename == 'blackstone_eat-2022-1_body':
             # sending first item is a hack which seems to work. Need to replace this so it isn't needed.
-            event_analysis(data_root=data_root, filename=filename, events_for_file=events_for_file)
+            event_analysis(data_root=data_root, filename=filename, events_for_file=events_for_file, gold_standard="eat-2022-1_body_manual_events.csv")
+        if filename == 'eat-2022-1_body':
+            # sending first item is a hack which seems to work. Need to replace this so it isn't needed.
+            event_analysis(data_root=data_root, filename=filename, events_for_file=events_for_file, gold_standard="eat-2022-1_body_manual_events.csv")
     
             
     
