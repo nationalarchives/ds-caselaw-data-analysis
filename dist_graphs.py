@@ -430,6 +430,7 @@ def draw_grouped_timeline(data, title="", save_path=""):
 
     if save_path != "":
         plt.savefig(save_path)
+        print("Visualisation saved to " + str(save_path))
 
     plt.show()
 

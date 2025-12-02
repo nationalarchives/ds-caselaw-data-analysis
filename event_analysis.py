@@ -510,7 +510,7 @@ def event_analysis(data_root, filename, events_for_file, gold_standard=""):
     #dg.draw_timeline({"dates": list(combined_events.keys()), "labels": list(combined_events.values())})
    
     grouped_events = date_cluster_analysis(Path(data_root, 'cache', filename + "_events.csv"), merge_gap=30, graph_split=182, filename=filename)
-    dg.draw_grouped_timeline({"dates": grouped_events, "labels": list(combined_events.values())}, title=filename.split('_body')[0], save_path=Path(data_root, 'cache', filename.split('_body')[0] + ".png"))
+    dg.draw_grouped_timeline({"dates": grouped_events, "labels": list(combined_events.values())}, title=filename.split('_body')[0], save_path=Path(data_root, 'visualisations', filename.split('_body')[0] + ".png"))
    
     #print("Grouped Events: " + str(grouped_events))
     #print("Labels: " + str(list(combined_events.values())))
